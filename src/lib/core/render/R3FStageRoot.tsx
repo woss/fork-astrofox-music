@@ -146,10 +146,7 @@ export default function R3FStageRoot({
 							display={display}
 							order={order}
 							frameData={frameData}
-							sceneOpacity={1}
-							sceneBlendMode="Normal"
-							sceneMask={false}
-							sceneInverse={false}
+							{...NEUTRAL_SCENE_PROPS}
 						/>,
 					);
 					break;
@@ -162,10 +159,7 @@ export default function R3FStageRoot({
 							order={order}
 							height={height}
 							frameData={frameData}
-							sceneOpacity={1}
-							sceneBlendMode="Normal"
-							sceneMask={false}
-							sceneInverse={false}
+							{...NEUTRAL_SCENE_PROPS}
 						/>,
 					);
 					break;

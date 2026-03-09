@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { clamp } from "@/lib/utils/math";
 import React from "react";
 import {
 	AddEquation,
@@ -8,6 +9,7 @@ import {
 	CustomBlending,
 	OneFactor,
 	Quaternion,
+	TubeGeometry,
 	Vector3,
 	ZeroFactor,
 } from "three";
@@ -60,8 +62,83 @@ void main() {
 }
 `;
 
-function clamp(value, min, max) {
-	return Math.min(max, Math.max(min, value));
+// Pre-allocated temp vectors for curve computation (avoids per-frame allocations)
+const _worldPoint = new Vector3();
+const _cameraPoint = new Vector3();
+const _nextPoint = new Vector3();
+const _tangent = new Vector3();
+const _right = new Vector3();
+const _up = new Vector3();
+const _relative = new Vector3();
+const _bankQuat = new Quaternion();
+const _curveP = new Vector3();
+const _normal = new Vector3();
+
+function computeWorldPoint(
+	out: Vector3,
+	distance: number,
+	tunnelDepth: number,
+	curveTurns: number,
+	curveBend: number,
+	curveTime: number,
+) {
+	const primaryAngle =
+		(distance / tunnelDepth) * curveTurns * Math.PI * 2 + curveTime * 0.45;
+	const secondaryAngle =
+		(distance / tunnelDepth) * curveTurns * Math.PI * 4.4 - curveTime * 0.28;
+
+	out.set(
+		Math.sin(primaryAngle) * curveBend +
+			Math.sin(secondaryAngle) * curveBend * 0.3,
+		Math.cos(primaryAngle * 0.82 + 0.6) * curveBend * 0.72 +
+			Math.cos(secondaryAngle * 0.7 - 0.35) * curveBend * 0.22,
+		-distance,
+	);
+	return out;
+}
+
+function updateTubeVertices(
+	geometry,
+	curve: CatmullRomCurve3,
+	tubularSegments: number,
+	radius: number,
+	radialSegments: number,
+) {
+	const frames = curve.computeFrenetFrames(tubularSegments, false);
+	const posAttr = geometry.getAttribute("position");
+	const normalAttr = geometry.getAttribute("normal");
+
+	let idx = 0;
+	for (let i = 0; i <= tubularSegments; i++) {
+		curve.getPointAt(i / tubularSegments, _curveP);
+		const N = frames.normals[i];
+		const B = frames.binormals[i];
+
+		for (let j = 0; j <= radialSegments; j++) {
+			const v = (j / radialSegments) * Math.PI * 2;
+			const sin = Math.sin(v);
+			const cos = -Math.cos(v);
+
+			_normal.x = cos * N.x + sin * B.x;
+			_normal.y = cos * N.y + sin * B.y;
+			_normal.z = cos * N.z + sin * B.z;
+			_normal.normalize();
+
+			normalAttr.setXYZ(idx, _normal.x, _normal.y, _normal.z);
+			posAttr.setXYZ(
+				idx,
+				_curveP.x + radius * _normal.x,
+				_curveP.y + radius * _normal.y,
+				_curveP.z + radius * _normal.z,
+			);
+
+			idx++;
+		}
+	}
+
+	posAttr.needsUpdate = true;
+	normalAttr.needsUpdate = true;
+	geometry.computeBoundingSphere();
 }
 
 export function TunnelDisplayLayer3D({
@@ -95,6 +172,10 @@ export function TunnelDisplayLayer3D({
 
 	const timeRef = React.useRef(0);
 	const materialRef = React.useRef(null);
+	const meshRef = React.useRef(null);
+	const geometryRef = React.useRef(null);
+	const curvePointsRef = React.useRef([]);
+	const structuralKeyRef = React.useRef("");
 	const deltaSeconds = Math.max(0, Number(frameData?.delta ?? 16.667)) / 1000;
 
 	if (frameData?.hasUpdate) {
@@ -147,76 +228,112 @@ export function TunnelDisplayLayer3D({
 	uniforms.uLineColor.value.set(sceneMask ? "#000000" : color);
 	uniforms.uBackgroundColor.value.set(sceneMask ? "#000000" : backgroundColor);
 
-	const curve = React.useMemo(() => {
-		const points = [];
-		const sampleStep = 10;
-		const currentDistance = curveTime * 320;
+	// Ensure we have enough pre-allocated Vector3s for curve points
+	const numPoints = pathSamples + 1;
+	const points = curvePointsRef.current;
+	while (points.length < numPoints) {
+		points.push(new Vector3());
+	}
+	points.length = numPoints;
 
-		const getWorldPoint = (distance: number) => {
-			const primaryAngle =
-				(distance / tunnelDepth) * curveTurns * Math.PI * 2 + curveTime * 0.45;
-			const secondaryAngle =
-				(distance / tunnelDepth) * curveTurns * Math.PI * 4.4 -
-				curveTime * 0.28;
+	// Compute curve points in-place (reusing pre-allocated Vector3s)
+	const sampleStep = 10;
+	const currentDistance = curveTime * 320;
 
-			return new Vector3(
-				Math.sin(primaryAngle) * curveBend +
-					Math.sin(secondaryAngle) * curveBend * 0.3,
-				Math.cos(primaryAngle * 0.82 + 0.6) * curveBend * 0.72 +
-					Math.cos(secondaryAngle * 0.7 - 0.35) * curveBend * 0.22,
-				-distance,
-			);
-		};
-
-		const cameraPoint = getWorldPoint(currentDistance);
-		const nextPoint = getWorldPoint(currentDistance + sampleStep);
-		const tangent = nextPoint.clone().sub(cameraPoint).normalize();
-		const right = new Vector3().crossVectors(new Vector3(0, 1, 0), tangent);
-		if (right.lengthSq() < 1e-6) {
-			right.set(1, 0, 0);
-		}
-		right.normalize();
-		const up = new Vector3().crossVectors(tangent, right).normalize();
-		const bankQuat = new Quaternion().setFromAxisAngle(tangent, rollRadians);
-		right.applyQuaternion(bankQuat);
-		up.applyQuaternion(bankQuat);
-
-		const toLocalPoint = (point: Vector3) => {
-			const relative = point.clone().sub(cameraPoint);
-			return new Vector3(
-				relative.dot(right),
-				relative.dot(up),
-				-relative.dot(tangent),
-			);
-		};
-
-		for (let index = 0; index <= pathSamples; index += 1) {
-			const t = index / pathSamples;
-			const distance =
-				currentDistance -
-				trailDistance +
-				t * (tunnelDepth + leadDistance + trailDistance);
-			points.push(toLocalPoint(getWorldPoint(distance)));
-		}
-
-		return new CatmullRomCurve3(points);
-	}, [
-		curveTime,
-		curveBend,
-		curveTurns,
-		leadDistance,
-		pathSamples,
-		rollRadians,
-		trailDistance,
+	computeWorldPoint(
+		_cameraPoint,
+		currentDistance,
 		tunnelDepth,
-	]);
+		curveTurns,
+		curveBend,
+		curveTime,
+	);
+	computeWorldPoint(
+		_nextPoint,
+		currentDistance + sampleStep,
+		tunnelDepth,
+		curveTurns,
+		curveBend,
+		curveTime,
+	);
+	_tangent.subVectors(_nextPoint, _cameraPoint).normalize();
+	_right.crossVectors(_up.set(0, 1, 0), _tangent);
+	if (_right.lengthSq() < 1e-6) {
+		_right.set(1, 0, 0);
+	}
+	_right.normalize();
+	_up.crossVectors(_tangent, _right).normalize();
+	_bankQuat.setFromAxisAngle(_tangent, rollRadians);
+	_right.applyQuaternion(_bankQuat);
+	_up.applyQuaternion(_bankQuat);
+
+	for (let i = 0; i <= pathSamples; i++) {
+		const t = i / pathSamples;
+		const distance =
+			currentDistance -
+			trailDistance +
+			t * (tunnelDepth + leadDistance + trailDistance);
+		computeWorldPoint(
+			_worldPoint,
+			distance,
+			tunnelDepth,
+			curveTurns,
+			curveBend,
+			curveTime,
+		);
+		_relative.subVectors(_worldPoint, _cameraPoint);
+		points[i].set(
+			_relative.dot(_right),
+			_relative.dot(_up),
+			-_relative.dot(_tangent),
+		);
+	}
+
+	const curve = new CatmullRomCurve3(points);
+
+	// Only recreate geometry when segment counts change; otherwise update vertices in-place
+	const structuralKey = `${lengthDetail}-${radialDetail}`;
+	if (structuralKeyRef.current !== structuralKey) {
+		if (geometryRef.current) geometryRef.current.dispose();
+		geometryRef.current = new TubeGeometry(
+			curve,
+			lengthDetail,
+			tunnelRadius,
+			radialDetail,
+			false,
+		);
+		structuralKeyRef.current = structuralKey;
+		if (meshRef.current) meshRef.current.geometry = geometryRef.current;
+	} else if (geometryRef.current) {
+		updateTubeVertices(
+			geometryRef.current,
+			curve,
+			lengthDetail,
+			tunnelRadius,
+			radialDetail,
+		);
+	}
+
+	// Dispose geometry on unmount
+	React.useEffect(() => {
+		return () => {
+			if (geometryRef.current) {
+				geometryRef.current.dispose();
+				geometryRef.current = null;
+			}
+		};
+	}, []);
+
+	// Assign geometry on first mount
+	React.useEffect(() => {
+		if (meshRef.current && geometryRef.current) {
+			meshRef.current.geometry = geometryRef.current;
+		}
+	});
 
 	return (
 		<group position={[0, 0, cameraZ]} scale={[1, 1, 1]}>
-			<mesh renderOrder={order} frustumCulled={false}>
-				<tubeGeometry
-					args={[curve, lengthDetail, tunnelRadius, radialDetail, false]}
-				/>
+			<mesh ref={meshRef} renderOrder={order} frustumCulled={false}>
 				<shaderMaterial
 					ref={materialRef}
 					uniforms={uniforms}

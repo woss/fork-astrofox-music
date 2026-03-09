@@ -483,12 +483,7 @@ function setUnresolvedMediaRefs(mediaRefs = []) {
 function sanitizeFileName(name) {
 	return (name || "")
 		.trim()
-		.split("")
-		.map((char) => {
-			const code = char.charCodeAt(0);
-			return /[<>:\"/\\|?*]/.test(char) || code < 32 ? "-" : char;
-		})
-		.join("")
+		.replace(/[<>:"/\\|?*\x00-\x1F]/g, "-")
 		.replace(/\s+/g, " ")
 		.trim();
 }

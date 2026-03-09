@@ -148,10 +148,7 @@ export default function HybridStageRoot({
 							display={display}
 							order={order}
 							frameData={frameData}
-							sceneOpacity={1}
-							sceneBlendMode="Normal"
-							sceneMask={false}
-							sceneInverse={false}
+							{...NEUTRAL_SCENE_PROPS}
 						/>,
 					);
 					break;
@@ -164,10 +161,7 @@ export default function HybridStageRoot({
 							order={order}
 							height={height}
 							frameData={frameData}
-							sceneOpacity={1}
-							sceneBlendMode="Normal"
-							sceneMask={false}
-							sceneInverse={false}
+							{...NEUTRAL_SCENE_PROPS}
 						/>,
 					);
 					break;
