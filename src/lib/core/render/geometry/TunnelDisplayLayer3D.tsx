@@ -36,6 +36,7 @@ uniform float uColumns;
 uniform float uRows;
 uniform float uLineWidth;
 uniform float uOpacity;
+uniform float uTransparentSurface;
 uniform vec3 uLineColor;
 uniform vec3 uBackgroundColor;
 
@@ -57,8 +58,10 @@ void main() {
 		gridLine(column, uLineWidth * 2.5)
 	);
 
-	vec3 color = mix(uBackgroundColor, uLineColor, glow * 0.35 + grid * 0.65);
-	gl_FragColor = vec4(color, uOpacity);
+	float lineMix = clamp(glow * 0.35 + grid * 0.65, 0.0, 1.0);
+	vec3 color = mix(uBackgroundColor, uLineColor, lineMix);
+	float alpha = mix(1.0, lineMix, uTransparentSurface);
+	gl_FragColor = vec4(color, alpha * uOpacity);
 }
 `;
 
@@ -73,6 +76,44 @@ const _relative = new Vector3();
 const _bankQuat = new Quaternion();
 const _curveP = new Vector3();
 const _normal = new Vector3();
+const _rotationAxis = new Vector3();
+
+function ensureVectorArraySize(vectors, size: number) {
+	while (vectors.length < size) {
+		vectors.push(new Vector3());
+	}
+	vectors.length = size;
+	return vectors;
+}
+
+function initializeTransportNormal(
+	out: Vector3,
+	tangent: Vector3,
+	previousNormal?: Vector3,
+) {
+	if (previousNormal && previousNormal.lengthSq() > 1e-6) {
+		out.copy(previousNormal);
+		out.addScaledVector(tangent, -out.dot(tangent));
+		if (out.lengthSq() > 1e-6) {
+			out.normalize();
+			return out;
+		}
+	}
+
+	out.set(0, 1, 0);
+	if (Math.abs(tangent.y) > 0.9) {
+		out.set(1, 0, 0);
+	}
+
+	out.addScaledVector(tangent, -out.dot(tangent));
+	if (out.lengthSq() < 1e-6) {
+		out.set(0, 0, 1);
+		out.addScaledVector(tangent, -out.dot(tangent));
+	}
+
+	out.normalize();
+	return out;
+}
 
 function computeWorldPoint(
 	out: Vector3,
@@ -103,16 +144,83 @@ function updateTubeVertices(
 	tubularSegments: number,
 	radius: number,
 	radialSegments: number,
+	frameTangents,
+	frameNormals,
+	frameBinormals,
+	previousNormal,
 ) {
-	const frames = curve.computeFrenetFrames(tubularSegments, false);
 	const posAttr = geometry.getAttribute("position");
 	const normalAttr = geometry.getAttribute("normal");
+	const sampleCount = tubularSegments + 1;
+
+	ensureVectorArraySize(frameTangents, sampleCount);
+	ensureVectorArraySize(frameNormals, sampleCount);
+	ensureVectorArraySize(frameBinormals, sampleCount);
+
+	for (let i = 0; i <= tubularSegments; i++) {
+		curve.getTangentAt(i / tubularSegments, frameTangents[i]);
+		frameTangents[i].normalize();
+
+		if (i === 0) {
+			initializeTransportNormal(
+				frameNormals[i],
+				frameTangents[i],
+				previousNormal,
+			);
+			frameBinormals[i]
+				.crossVectors(frameTangents[i], frameNormals[i])
+				.normalize();
+			frameNormals[i]
+				.crossVectors(frameBinormals[i], frameTangents[i])
+				.normalize();
+			continue;
+		}
+
+		_rotationAxis.crossVectors(frameTangents[i - 1], frameTangents[i]);
+
+		if (_rotationAxis.lengthSq() > 1e-8) {
+			_rotationAxis.normalize();
+			const angle = Math.acos(
+				Math.min(1, Math.max(-1, frameTangents[i - 1].dot(frameTangents[i]))),
+			);
+			frameNormals[i]
+				.copy(frameNormals[i - 1])
+				.applyAxisAngle(_rotationAxis, angle);
+		} else {
+			frameNormals[i].copy(frameNormals[i - 1]);
+		}
+
+		frameNormals[i].addScaledVector(
+			frameTangents[i],
+			-frameNormals[i].dot(frameTangents[i]),
+		);
+		if (frameNormals[i].lengthSq() < 1e-6) {
+			initializeTransportNormal(
+				frameNormals[i],
+				frameTangents[i],
+				frameNormals[i - 1],
+			);
+		} else {
+			frameNormals[i].normalize();
+		}
+
+		frameBinormals[i]
+			.crossVectors(frameTangents[i], frameNormals[i])
+			.normalize();
+		frameNormals[i]
+			.crossVectors(frameBinormals[i], frameTangents[i])
+			.normalize();
+	}
+
+	if (previousNormal) {
+		previousNormal.copy(frameNormals[0]);
+	}
 
 	let idx = 0;
 	for (let i = 0; i <= tubularSegments; i++) {
 		curve.getPointAt(i / tubularSegments, _curveP);
-		const N = frames.normals[i];
-		const B = frames.binormals[i];
+		const N = frameNormals[i];
+		const B = frameBinormals[i];
 
 		for (let j = 0; j <= radialSegments; j++) {
 			const v = (j / radialSegments) * Math.PI * 2;
@@ -165,7 +273,8 @@ export function TunnelDisplayLayer3D({
 		bank = 8,
 		gridColumns = 28,
 		gridRows = 48,
-		lineWidth = 0.08,
+		lineWidth = 0.05,
+		transparentSurface = false,
 		radialSegments = 40,
 		lengthSegments = 128,
 	} = properties;
@@ -175,6 +284,10 @@ export function TunnelDisplayLayer3D({
 	const meshRef = React.useRef(null);
 	const geometryRef = React.useRef(null);
 	const curvePointsRef = React.useRef([]);
+	const frameTangentsRef = React.useRef([]);
+	const frameNormalsRef = React.useRef([]);
+	const frameBinormalsRef = React.useRef([]);
+	const initialFrameNormalRef = React.useRef(new Vector3(0, 1, 0));
 	const structuralKeyRef = React.useRef("");
 	const deltaSeconds = Math.max(0, Number(frameData?.delta ?? 16.667)) / 1000;
 
@@ -213,6 +326,7 @@ export function TunnelDisplayLayer3D({
 			uRows: { value: 0 },
 			uLineWidth: { value: 0 },
 			uOpacity: { value: 1 },
+			uTransparentSurface: { value: 0 },
 			uLineColor: { value: new Color() },
 			uBackgroundColor: { value: new Color() },
 		}),
@@ -225,6 +339,7 @@ export function TunnelDisplayLayer3D({
 	uniforms.uRows.value = Math.max(1, Number(gridRows) || 1);
 	uniforms.uLineWidth.value = clamp(Number(lineWidth) || 0, 0.005, 0.3);
 	uniforms.uOpacity.value = finalOpacity;
+	uniforms.uTransparentSurface.value = transparentSurface ? 1 : 0;
 	uniforms.uLineColor.value.set(sceneMask ? "#000000" : color);
 	uniforms.uBackgroundColor.value.set(sceneMask ? "#000000" : backgroundColor);
 
@@ -304,6 +419,17 @@ export function TunnelDisplayLayer3D({
 		);
 		structuralKeyRef.current = structuralKey;
 		if (meshRef.current) meshRef.current.geometry = geometryRef.current;
+		updateTubeVertices(
+			geometryRef.current,
+			curve,
+			lengthDetail,
+			tunnelRadius,
+			radialDetail,
+			frameTangentsRef.current,
+			frameNormalsRef.current,
+			frameBinormalsRef.current,
+			initialFrameNormalRef.current,
+		);
 	} else if (geometryRef.current) {
 		updateTubeVertices(
 			geometryRef.current,
@@ -311,6 +437,10 @@ export function TunnelDisplayLayer3D({
 			lengthDetail,
 			tunnelRadius,
 			radialDetail,
+			frameTangentsRef.current,
+			frameNormalsRef.current,
+			frameBinormalsRef.current,
+			initialFrameNormalRef.current,
 		);
 	}
 
@@ -342,7 +472,7 @@ export function TunnelDisplayLayer3D({
 					transparent={true}
 					side={BackSide}
 					depthTest={true}
-					depthWrite={true}
+					depthWrite={!transparentSurface}
 					premultipliedAlpha={requiresPremultipliedAlpha(sceneBlendMode)}
 					blending={blending}
 					blendEquation={sceneMask ? AddEquation : undefined}
