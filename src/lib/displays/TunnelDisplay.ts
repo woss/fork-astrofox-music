@@ -12,6 +12,7 @@ export default class TunnelDisplay extends Display {
 			opacity: 1.0,
 			radius: 180,
 			depth: 3200,
+			fogDistance: 2400,
 			curvature: 32,
 			turnRate: 2.6,
 			travelSpeed: 6,
@@ -49,6 +50,14 @@ export default class TunnelDisplay extends Display {
 				type: "number",
 				min: 600,
 				max: 6000,
+				withRange: true,
+			},
+			fogDistance: {
+				label: "Fog Distance",
+				type: "number",
+				min: 0,
+				max: 6000,
+				step: 1,
 				withRange: true,
 			},
 			gridColumns: {

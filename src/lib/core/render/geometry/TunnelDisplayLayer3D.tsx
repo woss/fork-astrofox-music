@@ -37,6 +37,7 @@ uniform float uRows;
 uniform float uLineWidth;
 uniform float uOpacity;
 uniform float uTransparentSurface;
+uniform float uFogDistance;
 uniform vec3 uLineColor;
 uniform vec3 uBackgroundColor;
 
@@ -57,10 +58,16 @@ void main() {
 		gridLine(scroll, uLineWidth * 2.5),
 		gridLine(column, uLineWidth * 2.5)
 	);
+	float fog = 1.0;
+	if (uFogDistance > 0.0) {
+		fog = smoothstep(0.0, uFogDistance, vUv.x);
+	}
 
 	float lineMix = clamp(glow * 0.35 + grid * 0.65, 0.0, 1.0);
 	vec3 color = mix(uBackgroundColor, uLineColor, lineMix);
+	color = mix(color, uBackgroundColor, fog);
 	float alpha = mix(1.0, lineMix, uTransparentSurface);
+	alpha *= mix(1.0, 1.0 - fog, uTransparentSurface);
 	gl_FragColor = vec4(color, alpha * uOpacity);
 }
 `;
@@ -266,6 +273,7 @@ export function TunnelDisplayLayer3D({
 		opacity = 1,
 		radius = 180,
 		depth = 3200,
+		fogDistance = 2400,
 		curvature = 32,
 		turnRate = 2.6,
 		travelSpeed = 0.8,
@@ -327,6 +335,7 @@ export function TunnelDisplayLayer3D({
 			uLineWidth: { value: 0 },
 			uOpacity: { value: 1 },
 			uTransparentSurface: { value: 0 },
+			uFogDistance: { value: 1 },
 			uLineColor: { value: new Color() },
 			uBackgroundColor: { value: new Color() },
 		}),
@@ -340,6 +349,11 @@ export function TunnelDisplayLayer3D({
 	uniforms.uLineWidth.value = clamp(Number(lineWidth) || 0, 0.005, 0.3);
 	uniforms.uOpacity.value = finalOpacity;
 	uniforms.uTransparentSurface.value = transparentSurface ? 1 : 0;
+	uniforms.uFogDistance.value = clamp(
+		Number(fogDistance ?? tunnelDepth) / Math.max(1, tunnelDepth),
+		0,
+		1,
+	);
 	uniforms.uLineColor.value.set(sceneMask ? "#000000" : color);
 	uniforms.uBackgroundColor.value.set(sceneMask ? "#000000" : backgroundColor);
 
