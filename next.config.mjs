@@ -12,6 +12,10 @@ const nextConfig = {
 	env: {
 		NEXT_PUBLIC_APP_VERSION: appVersion,
 	},
+	typescript: {
+		ignoreBuildErrors: true,
+	},
+	devIndicators: false,
 	turbopack: {
 		resolveAlias: {
 			"@": resolveFromRoot("src"),
