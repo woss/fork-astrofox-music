@@ -43,6 +43,9 @@ export function PerspectiveScene3D({
 	children,
 }) {
 	const gl = useThree((state) => state.gl);
+	const dofProperties = depthOfFieldEffect?.properties || {};
+	const depthOfFieldEnabled =
+		!!depthOfFieldEffect && depthOfFieldEffect.enabled !== false;
 
 	const cameraZ = React.useMemo(
 		() => height / 2 / Math.tan(((PERSPECTIVE_FOV / 2) * Math.PI) / 180),
@@ -84,11 +87,44 @@ export function PerspectiveScene3D({
 		dofPassRef.current = new ShaderPass(DepthOfFieldShader);
 	}
 
+	const dofRenderHeight = React.useMemo(() => {
+		const requestedHeight = Math.max(
+			1,
+			Math.round(Number(dofProperties.height ?? height) || height),
+		);
+
+		return Math.min(requestedHeight, Math.max(1, height));
+	}, [dofProperties.height, height]);
+
+	const dofRenderWidth = React.useMemo(() => {
+		if (height <= 0) {
+			return Math.max(1, width);
+		}
+
+		return Math.max(1, Math.round((width * dofRenderHeight) / height));
+	}, [dofRenderHeight, height, width]);
+
 	React.useEffect(() => {
 		colorTarget.setSize(width, height);
-		effectTarget.setSize(width, height);
-		dofPassRef.current?.setSize(width, height);
-	}, [colorTarget, effectTarget, width, height]);
+	}, [colorTarget, width, height]);
+
+	React.useEffect(() => {
+		effectTarget.setSize(
+			depthOfFieldEnabled ? dofRenderWidth : width,
+			depthOfFieldEnabled ? dofRenderHeight : height,
+		);
+		dofPassRef.current?.setSize(
+			depthOfFieldEnabled ? dofRenderWidth : width,
+			depthOfFieldEnabled ? dofRenderHeight : height,
+		);
+	}, [
+		depthOfFieldEnabled,
+		dofRenderHeight,
+		dofRenderWidth,
+		effectTarget,
+		height,
+		width,
+	]);
 
 	React.useEffect(() => {
 		return () => {
@@ -98,9 +134,6 @@ export function PerspectiveScene3D({
 		};
 	}, [colorTarget, effectTarget]);
 
-	const dofProperties = depthOfFieldEffect?.properties || {};
-	const depthOfFieldEnabled =
-		!!depthOfFieldEffect && depthOfFieldEffect.enabled !== false;
 	const outputTexture =
 		depthOfFieldEnabled && colorTarget.depthTexture
 			? effectTarget.texture
@@ -124,12 +157,6 @@ export function PerspectiveScene3D({
 		gl.render(perspScene, perspCamera);
 
 		if (depthOfFieldEnabled && colorTarget.depthTexture) {
-			const renderHeight = Math.max(
-				1,
-				Math.round(Number(dofProperties.height ?? height) || height),
-			);
-			const resolutionScale = Math.min(1, renderHeight / Math.max(1, height));
-
 			dofPassRef.current?.setUniforms({
 				depthTexture: colorTarget.depthTexture,
 				nearClip: perspCamera.near,
@@ -137,7 +164,7 @@ export function PerspectiveScene3D({
 				focusDistance: Number(dofProperties.focusDistance ?? 0),
 				focalLength: Number(dofProperties.focalLength ?? 0.02),
 				bokehScale: Number(dofProperties.bokehScale ?? 2),
-				resolutionScale,
+				resolutionScale: dofRenderHeight / Math.max(1, height),
 			});
 			dofPassRef.current?.render(gl, colorTarget, effectTarget);
 		}
