@@ -1,9 +1,11 @@
-import { reverse } from "@/lib/utils/array";
 import Layer from "@/app/components/panels/Layer";
 import { Cube, Picture, Square, Sun } from "@/app/icons";
+import { reverse } from "@/lib/utils/array";
+import { getDisplayRenderGroup } from "@/lib/utils/displayRenderGroup";
 import classNames from "classnames";
 import type { LucideIcon } from "lucide-react";
-import React, { useMemo } from "react";
+import type React from "react";
+import { useMemo } from "react";
 
 const icons: Record<string, LucideIcon> = {
 	effect: Sun,
@@ -20,7 +22,7 @@ interface SceneElement {
 
 function resolveLayerIcon(layer: SceneElement): LucideIcon {
 	if (layer.type === "display") {
-		return layer.name === "GeometryDisplay" ? Cube : Square;
+		return getDisplayRenderGroup(layer) === "3d" ? Cube : Square;
 	}
 
 	return icons[layer.type] || Cube;
@@ -38,6 +40,7 @@ interface SceneLayerProps {
 	dragSourceId?: string | null;
 	dragOverId?: string | null;
 	dragSourceType?: string | null;
+	dragSourceRenderGroup?: string | null;
 	onLayerClick?: (id: string) => void;
 	onLayerUpdate?: (id: string, prop: string, value: unknown) => void;
 	onLayerDelete?: (id: string) => void;
@@ -53,6 +56,7 @@ export default function SceneLayer({
 	dragSourceId = null,
 	dragOverId = null,
 	dragSourceType = null,
+	dragSourceRenderGroup = null,
 	onLayerClick,
 	onLayerUpdate,
 	onLayerDelete,
@@ -65,10 +69,25 @@ export default function SceneLayer({
 	const sceneDragging = dragSourceId === id;
 	const sceneDragOver = dragOverId === id;
 
-	const displays = useMemo(() => reverse(scene.displays), [scene.displays]);
+	const displays3D = useMemo(
+		() =>
+			reverse(
+				scene.displays.filter(
+					(display) => getDisplayRenderGroup(display) === "3d",
+				),
+			),
+		[scene.displays],
+	);
+	const displays2D = useMemo(
+		() =>
+			reverse(
+				scene.displays.filter(
+					(display) => getDisplayRenderGroup(display) === "2d",
+				),
+			),
+		[scene.displays],
+	);
 	const effects = useMemo(() => reverse(scene.effects), [scene.effects]);
-	const lastEffectId = effects[effects.length - 1]?.id;
-	const lastDisplayId = displays[displays.length - 1]?.id;
 
 	const renderLayer = ({
 		id,
@@ -95,6 +114,74 @@ export default function SceneLayer({
 			onLayerDrop={onLayerDrop}
 			onLayerDragEnd={onLayerDragEnd}
 		/>
+	);
+
+	const renderSection = (
+		title: string,
+		layers: SceneElement[],
+		emptyLabel: string,
+		sectionType: "effect" | "display",
+		sectionRenderGroup: "2d" | "3d" | null = null,
+	) => (
+		<div className="flex flex-col gap-0.5">
+			<div className="ml-4 px-2 pt-1.5 pb-0.5 text-[10px] font-medium tracking-[0.18em] uppercase text-neutral-500">
+				{title}
+			</div>
+			{layers.length > 0 ? (
+				layers.map((layer: SceneElement) => renderLayer(layer))
+			) : (
+				<div
+					className="ml-4 rounded border border-dashed border-neutral-700/80 px-2 py-1 text-xs text-neutral-600"
+					onDragOver={(e) => {
+						if (
+							dragSourceType !== sectionType ||
+							(sectionRenderGroup &&
+								dragSourceRenderGroup !== sectionRenderGroup)
+						) {
+							return;
+						}
+
+						onLayerDragOver?.(scene.id, e);
+					}}
+					onDrop={(e) => {
+						if (
+							dragSourceType !== sectionType ||
+							(sectionRenderGroup &&
+								dragSourceRenderGroup !== sectionRenderGroup)
+						) {
+							return;
+						}
+
+						onLayerDrop?.(scene.id, e);
+					}}
+				>
+					{emptyLabel}
+				</div>
+			)}
+			<div
+				className="h-2 ml-4"
+				onDragOver={(e) => {
+					if (
+						dragSourceType !== sectionType ||
+						(sectionRenderGroup && dragSourceRenderGroup !== sectionRenderGroup)
+					) {
+						return;
+					}
+
+					onLayerDragOver?.(scene.id, e);
+				}}
+				onDrop={(e) => {
+					if (
+						dragSourceType !== sectionType ||
+						(sectionRenderGroup && dragSourceRenderGroup !== sectionRenderGroup)
+					) {
+						return;
+					}
+
+					onLayerDrop?.(scene.id, e);
+				}}
+			/>
+		</div>
 	);
 
 	return (
@@ -136,22 +223,21 @@ export default function SceneLayer({
 				onLayerDragEnd={onLayerDragEnd}
 				className="rounded"
 			/>
-			<div className={classNames("flex flex-col gap-0.5")}>
-				{effects.map((effect: SceneElement) => renderLayer(effect))}
-				{lastEffectId && (
-					<div
-						className="h-2 ml-4"
-						onDragOver={(e) => onLayerDragOver?.(lastEffectId, e)}
-						onDrop={(e) => onLayerDrop?.(lastEffectId, e)}
-					/>
+			<div className={classNames("flex flex-col gap-1")}>
+				{renderSection("Effects", effects, "Drop effects here", "effect")}
+				{renderSection(
+					"3D Displays",
+					displays3D,
+					"Drop 3D displays here",
+					"display",
+					"3d",
 				)}
-				{displays.map((display: SceneElement) => renderLayer(display))}
-				{lastDisplayId && (
-					<div
-						className="h-2 ml-4"
-						onDragOver={(e) => onLayerDragOver?.(lastDisplayId, e)}
-						onDrop={(e) => onLayerDrop?.(lastDisplayId, e)}
-					/>
+				{renderSection(
+					"2D Displays",
+					displays2D,
+					"Drop 2D displays here",
+					"display",
+					"2d",
 				)}
 			</div>
 		</div>

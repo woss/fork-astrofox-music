@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { stage } from "@/app/global";
+import { getDisplayRenderGroup } from "@/lib/utils/displayRenderGroup";
 import cloneDeep from "lodash/cloneDeep";
 import create from "zustand";
 import { touchProject } from "./project";
@@ -70,6 +71,70 @@ function getElementTarget(type) {
 	return type === "effect" ? "effects" : "displays";
 }
 
+function getDisplayGroups(displays) {
+	return {
+		"3d": displays.filter((display) => getDisplayRenderGroup(display) === "3d"),
+		"2d": displays.filter((display) => getDisplayRenderGroup(display) === "2d"),
+	};
+}
+
+function buildDisplayOrder(displayGroups) {
+	return [...displayGroups["3d"], ...displayGroups["2d"]];
+}
+
+function getDisplayGroupLength(displays, renderGroup) {
+	return displays.filter(
+		(display) => getDisplayRenderGroup(display) === renderGroup,
+	).length;
+}
+
+function getDisplayGroupIndex(displays, displayIndex) {
+	const renderGroup = getDisplayRenderGroup(displays[displayIndex]);
+	let groupIndex = -1;
+
+	for (let i = 0; i <= displayIndex; i += 1) {
+		if (getDisplayRenderGroup(displays[i]) === renderGroup) {
+			groupIndex += 1;
+		}
+	}
+
+	return {
+		renderGroup,
+		groupIndex,
+	};
+}
+
+function insertDisplayAtRenderGroup(displays, display, targetIndex) {
+	const renderGroup = getDisplayRenderGroup(display);
+	const displayGroups = getDisplayGroups(displays);
+	displayGroups[renderGroup] = insertAtIndex(
+		displayGroups[renderGroup],
+		targetIndex,
+		display,
+	);
+	return buildDisplayOrder(displayGroups);
+}
+
+function moveDisplayWithinRenderGroup(displays, sourceIndex, targetGroupIndex) {
+	const { renderGroup, groupIndex } = getDisplayGroupIndex(
+		displays,
+		sourceIndex,
+	);
+	const displayGroups = getDisplayGroups(displays);
+	const nextGroup = moveAtIndex(
+		displayGroups[renderGroup],
+		groupIndex,
+		targetGroupIndex,
+	);
+
+	if (nextGroup === displayGroups[renderGroup]) {
+		return displays;
+	}
+
+	displayGroups[renderGroup] = nextGroup;
+	return buildDisplayOrder(displayGroups);
+}
+
 function insertAtIndex(items, index, item) {
 	const nextItems = [...items];
 	const normalizedIndex = Math.max(0, Math.min(index, nextItems.length));
@@ -93,10 +158,16 @@ function findElementLocation(scenes, id) {
 			(display) => display.id === id,
 		);
 		if (displayIndex > -1) {
+			const { renderGroup, groupIndex } = getDisplayGroupIndex(
+				scene.displays,
+				displayIndex,
+			);
 			return {
 				type: "display",
 				sceneId: scene.id,
 				index: displayIndex,
+				renderGroup,
+				groupIndex,
 			};
 		}
 
@@ -156,6 +227,14 @@ export function addElement(element, sceneId) {
 	}
 
 	const nextElement = element.toJSON();
+	const targetScene = scenes.find((scene) => scene.id === targetSceneId);
+	const targetIndex =
+		target === "displays"
+			? getDisplayGroupLength(
+					targetScene?.displays || [],
+					getDisplayRenderGroup(nextElement),
+				)
+			: undefined;
 
 	updateScenes((currentScenes) =>
 		currentScenes.map((scene) => {
@@ -165,7 +244,14 @@ export function addElement(element, sceneId) {
 
 			return {
 				...scene,
-				[target]: [...scene[target], nextElement],
+				[target]:
+					target === "displays"
+						? insertDisplayAtRenderGroup(
+								scene[target],
+								nextElement,
+								targetIndex,
+							)
+						: [...scene[target], nextElement],
 			};
 		}),
 	);
@@ -173,7 +259,7 @@ export function addElement(element, sceneId) {
 	const scene = stage.getSceneById(targetSceneId) || stage.scenes[0];
 
 	if (scene) {
-		scene.addElement(element);
+		scene.addElement(element, targetIndex);
 	}
 }
 
@@ -315,40 +401,77 @@ function moveAtIndex(items, fromIndex, toIndex) {
 }
 
 export function moveElement(id, spaces) {
-	updateScenes((scenes) => {
-		const sceneIndex = scenes.findIndex((scene) => scene.id === id);
+	const scenes = sceneStore.getState().scenes;
+	const source = findElementLocation(scenes, id);
 
-		if (sceneIndex > -1) {
-			return swapAtIndex(scenes, sceneIndex, spaces);
+	if (!source) {
+		return;
+	}
+
+	if (source.type === "scene") {
+		updateScenes((currentScenes) =>
+			swapAtIndex(currentScenes, source.index, spaces),
+		);
+
+		const element = stage.getStageElementById(id);
+		if (element) {
+			stage.shiftStageElement(element, spaces);
 		}
+		return;
+	}
 
-		return scenes.map((scene) => {
-			const displayIndex = scene.displays.findIndex(
-				(display) => display.id === id,
-			);
-			if (displayIndex > -1) {
+	if (source.type === "effect") {
+		updateScenes((currentScenes) =>
+			currentScenes.map((scene) => {
+				if (scene.id !== source.sceneId) {
+					return scene;
+				}
+
 				return {
 					...scene,
-					displays: swapAtIndex(scene.displays, displayIndex, spaces),
+					effects: swapAtIndex(scene.effects, source.index, spaces),
 				};
-			}
+			}),
+		);
 
-			const effectIndex = scene.effects.findIndex((effect) => effect.id === id);
-			if (effectIndex > -1) {
-				return {
-					...scene,
-					effects: swapAtIndex(scene.effects, effectIndex, spaces),
-				};
-			}
+		const element = stage.getStageElementById(id);
+		if (element) {
+			stage.shiftStageElement(element, spaces);
+		}
+		return;
+	}
 
-			return scene;
-		});
-	});
+	const sourceScene = scenes.find((scene) => scene.id === source.sceneId);
+	if (!sourceScene) {
+		return;
+	}
+
+	const targetGroupIndex = source.groupIndex + spaces;
+	const nextDisplays = moveDisplayWithinRenderGroup(
+		sourceScene.displays,
+		source.index,
+		targetGroupIndex,
+	);
+
+	if (nextDisplays === sourceScene.displays) {
+		return;
+	}
+
+	updateScenes((currentScenes) =>
+		currentScenes.map((scene) =>
+			scene.id === source.sceneId
+				? { ...scene, displays: nextDisplays }
+				: scene,
+		),
+	);
 
 	const element = stage.getStageElementById(id);
+	const sceneInstance = stage.getSceneById(source.sceneId);
+	const targetIndex = nextDisplays.findIndex((display) => display.id === id);
 
-	if (element) {
-		stage.shiftStageElement(element, spaces);
+	if (element && sceneInstance && targetIndex > -1) {
+		sceneInstance.removeElement(element);
+		sceneInstance.addElement(element, targetIndex);
 	}
 }
 
@@ -367,7 +490,97 @@ export function reorderElement(sourceId, targetId) {
 
 	if (source.type === "scene" || target.type === "scene") {
 		if (source.type !== "scene" && target.type !== "scene") {
-			return false;
+			const sourceCollection = getElementTarget(source.type);
+			const sourceScene = scenes.find((scene) => scene.id === source.sceneId);
+			const targetScene = scenes.find((scene) => scene.id === target.sceneId);
+			const sourceItem = sourceScene?.[sourceCollection]?.[source.index];
+
+			if (!sourceScene || !targetScene || !sourceItem) {
+				return false;
+			}
+
+			const sourceDisplays =
+				source.type === "display"
+					? sourceScene.displays.filter((item) => item.id !== sourceId)
+					: sourceScene.displays;
+			const sourceEffects =
+				source.type === "effect"
+					? sourceScene.effects.filter((item) => item.id !== sourceId)
+					: sourceScene.effects;
+			const targetDisplays =
+				source.type === "display"
+					? insertDisplayAtRenderGroup(
+							source.sceneId === target.sceneId
+								? sourceDisplays
+								: targetScene.displays,
+							sourceItem,
+							getDisplayGroupLength(
+								source.sceneId === target.sceneId
+									? sourceDisplays
+									: targetScene.displays,
+								source.renderGroup,
+							),
+						)
+					: source.sceneId === target.sceneId
+						? sourceDisplays
+						: targetScene.displays;
+			const targetEffects =
+				source.type === "effect"
+					? [
+							...(source.sceneId === target.sceneId
+								? sourceEffects
+								: targetScene.effects),
+							sourceItem,
+						]
+					: source.sceneId === target.sceneId
+						? sourceEffects
+						: targetScene.effects;
+
+			updateScenes((currentScenes) =>
+				currentScenes.map((scene) => {
+					if (scene.id === source.sceneId && scene.id === target.sceneId) {
+						return {
+							...scene,
+							displays: targetDisplays,
+							effects: targetEffects,
+						};
+					}
+
+					if (scene.id === source.sceneId) {
+						return {
+							...scene,
+							displays: sourceDisplays,
+							effects: sourceEffects,
+						};
+					}
+
+					if (scene.id === target.sceneId) {
+						return {
+							...scene,
+							displays: targetDisplays,
+							effects: targetEffects,
+						};
+					}
+
+					return scene;
+				}),
+			);
+
+			const element = stage.getStageElementById(sourceId);
+			const sourceSceneInstance = stage.getSceneById(source.sceneId);
+			const targetSceneInstance = stage.getSceneById(target.sceneId);
+			const targetIndex =
+				source.type === "display"
+					? targetDisplays.findIndex((display) => display.id === sourceId)
+					: targetEffects.length - 1;
+
+			if (!element || !sourceSceneInstance || !targetSceneInstance) {
+				return true;
+			}
+
+			sourceSceneInstance.removeElement(element);
+			targetSceneInstance.addElement(element, targetIndex);
+			return true;
 		}
 
 		if (source.type === "scene") {
@@ -390,61 +603,13 @@ export function reorderElement(sourceId, targetId) {
 
 			return true;
 		}
-
-		const sourceCollection = getElementTarget(source.type);
-		const sourceScene = scenes.find((scene) => scene.id === source.sceneId);
-		const sourceItem = sourceScene?.[sourceCollection]?.[source.index];
-
-		if (!sourceScene || !sourceItem) {
-			return false;
-		}
-
-		updateScenes((currentScenes) =>
-			currentScenes.map((scene) => {
-				if (scene.id === source.sceneId && scene.id === target.sceneId) {
-					const nextItems = [...scene[sourceCollection]];
-					nextItems.splice(source.index, 1);
-					nextItems.push(sourceItem);
-					return {
-						...scene,
-						[sourceCollection]: nextItems,
-					};
-				}
-
-				if (scene.id === source.sceneId) {
-					return {
-						...scene,
-						[sourceCollection]: scene[sourceCollection].filter(
-							(item) => item.id !== sourceId,
-						),
-					};
-				}
-
-				if (scene.id === target.sceneId) {
-					return {
-						...scene,
-						[sourceCollection]: [...scene[sourceCollection], sourceItem],
-					};
-				}
-
-				return scene;
-			}),
-		);
-
-		const element = stage.getStageElementById(sourceId);
-		const sourceSceneInstance = stage.getSceneById(source.sceneId);
-		const targetSceneInstance = stage.getSceneById(target.sceneId);
-
-		if (!element || !sourceSceneInstance || !targetSceneInstance) {
-			return true;
-		}
-
-		sourceSceneInstance.removeElement(element);
-		targetSceneInstance.addElement(element);
-		return true;
 	}
 
 	if (source.type !== target.type) {
+		return false;
+	}
+
+	if (source.type === "display" && source.renderGroup !== target.renderGroup) {
 		return false;
 	}
 
@@ -472,11 +637,18 @@ export function reorderElement(sourceId, targetId) {
 				if (scene.id === target.sceneId) {
 					return {
 						...scene,
-						[targetCollection]: insertAtIndex(
-							scene[targetCollection],
-							target.index,
-							sourceItem,
-						),
+						[targetCollection]:
+							source.type === "display"
+								? insertDisplayAtRenderGroup(
+										scene[targetCollection],
+										sourceItem,
+										target.groupIndex,
+									)
+								: insertAtIndex(
+										scene[targetCollection],
+										target.index,
+										sourceItem,
+									),
 					};
 				}
 
@@ -487,13 +659,55 @@ export function reorderElement(sourceId, targetId) {
 		const element = stage.getStageElementById(sourceId);
 		const sourceSceneInstance = stage.getSceneById(source.sceneId);
 		const targetSceneInstance = stage.getSceneById(target.sceneId);
+		const targetIndex =
+			source.type === "display"
+				? insertDisplayAtRenderGroup(
+						targetScene[targetCollection],
+						sourceItem,
+						target.groupIndex,
+					).findIndex((display) => display.id === sourceId)
+				: target.index;
 
 		if (!element || !sourceSceneInstance || !targetSceneInstance) {
 			return true;
 		}
 
 		sourceSceneInstance.removeElement(element);
-		targetSceneInstance.addElement(element, target.index);
+		targetSceneInstance.addElement(element, targetIndex);
+		return true;
+	}
+
+	if (source.type === "display") {
+		const sourceScene = scenes.find((scene) => scene.id === source.sceneId);
+		if (!sourceScene) {
+			return false;
+		}
+
+		const nextDisplays = moveDisplayWithinRenderGroup(
+			sourceScene.displays,
+			source.index,
+			target.groupIndex,
+		);
+
+		updateScenes((currentScenes) =>
+			currentScenes.map((scene) =>
+				scene.id === source.sceneId
+					? { ...scene, displays: nextDisplays }
+					: scene,
+			),
+		);
+
+		const element = stage.getStageElementById(sourceId);
+		const sceneInstance = stage.getSceneById(source.sceneId);
+		const targetIndex = nextDisplays.findIndex(
+			(display) => display.id === sourceId,
+		);
+
+		if (element && sceneInstance && targetIndex > -1) {
+			sceneInstance.removeElement(element);
+			sceneInstance.addElement(element, targetIndex);
+		}
+
 		return true;
 	}
 
@@ -501,13 +715,6 @@ export function reorderElement(sourceId, targetId) {
 		currentScenes.map((scene) => {
 			if (scene.id !== source.sceneId) {
 				return scene;
-			}
-
-			if (source.type === "display") {
-				return {
-					...scene,
-					displays: moveAtIndex(scene.displays, source.index, target.index),
-				};
 			}
 
 			return {

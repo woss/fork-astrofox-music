@@ -1,4 +1,3 @@
-import { reverse } from "@/lib/utils/array";
 import useApp, { setActiveElementId } from "@/app/actions/app";
 import useScenes, {
 	moveElement,
@@ -14,11 +13,15 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { reverse } from "@/lib/utils/array";
+import { getDisplayRenderGroup } from "@/lib/utils/displayRenderGroup";
 import classNames from "classnames";
-import React, { useEffect, useMemo, useState } from "react";
+import type React from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface SceneElement {
 	id: string;
+	name?: string;
 	type: string;
 	displayName: string;
 	enabled: boolean;
@@ -55,23 +58,6 @@ export default function LayersPanel() {
 		};
 	}, [dragSourceId]);
 
-	const activeScene = useMemo(() => {
-		return scenes.reduce((memo: SceneData | undefined, scene: SceneData) => {
-			if (!memo) {
-				if (
-					scene?.id === activeElementId ||
-					scene?.displays.find(
-						(e: { id: string }) => e.id === activeElementId,
-					) ||
-					scene?.effects.find((e: { id: string }) => e.id === activeElementId)
-				) {
-					memo = scene;
-				}
-			}
-			return memo;
-		}, undefined);
-	}, [scenes, activeElementId]);
-
 	const dragSourceMeta = useMemo(() => {
 		if (!dragSourceId) {
 			return null;
@@ -98,9 +84,16 @@ export default function LayersPanel() {
 				(d: { id: string }) => d.id === activeElementId,
 			);
 			if (displayIndex > -1) {
+				const renderGroup = getDisplayRenderGroup(scene.displays[displayIndex]);
+				const displayGroup = scene.displays.filter(
+					(display) => getDisplayRenderGroup(display) === renderGroup,
+				);
+				const groupIndex = displayGroup.findIndex(
+					(display) => display.id === activeElementId,
+				);
 				return {
-					canMoveUp: displayIndex < scene.displays.length - 1,
-					canMoveDown: displayIndex > 0,
+					canMoveUp: groupIndex < displayGroup.length - 1,
+					canMoveDown: groupIndex > 0,
 				};
 			}
 
@@ -134,7 +127,12 @@ export default function LayersPanel() {
 
 		for (const scene of scenes) {
 			if (scene.displays.some((display) => display.id === id)) {
-				return { type: "display", sceneId: scene.id };
+				const display = scene.displays.find((item) => item.id === id);
+				return {
+					type: "display",
+					sceneId: scene.id,
+					renderGroup: getDisplayRenderGroup(display),
+				};
 			}
 
 			if (scene.effects.some((effect) => effect.id === id)) {
@@ -165,7 +163,15 @@ export default function LayersPanel() {
 			return true;
 		}
 
-		return sourceMeta.type === targetMeta.type;
+		if (sourceMeta.type !== targetMeta.type) {
+			return false;
+		}
+
+		if (sourceMeta.type === "display") {
+			return sourceMeta.renderGroup === targetMeta.renderGroup;
+		}
+
+		return true;
 	}
 
 	function handleMoveUp() {
@@ -178,20 +184,11 @@ export default function LayersPanel() {
 	function handleRemove(id: string) {
 		if (!id) return;
 
-		const ownerScene = scenes.reduce(
-			(memo: SceneData | undefined, scene: SceneData) => {
-				if (!memo) {
-					if (
-						scene?.id === id ||
-						scene?.displays.find((e: { id: string }) => e.id === id) ||
-						scene?.effects.find((e: { id: string }) => e.id === id)
-					) {
-						memo = scene;
-					}
-				}
-				return memo;
-			},
-			undefined,
+		const ownerScene = scenes.find(
+			(scene) =>
+				scene?.id === id ||
+				scene?.displays.find((e: { id: string }) => e.id === id) ||
+				scene?.effects.find((e: { id: string }) => e.id === id),
 		);
 
 		if (id === ownerScene?.id) {
@@ -279,7 +276,8 @@ export default function LayersPanel() {
 			}}
 		>
 			<div className={"flex p-1 gap-1"}>
-				<div
+				<button
+					type="button"
 					className={classNames(
 						"text-neutral-100 bg-neutral-900 min-h-6 min-w-6 text-center rounded inline-flex justify-center items-center cursor-default shrink-0",
 						{ "opacity-30 hover:bg-neutral-900": !canMoveUp },
@@ -287,8 +285,9 @@ export default function LayersPanel() {
 					onClick={canMoveUp ? handleMoveUp : undefined}
 				>
 					<ChevronUp className="text-neutral-100 w-4 h-4" />
-				</div>
-				<div
+				</button>
+				<button
+					type="button"
 					className={classNames(
 						"text-neutral-100 bg-neutral-900 min-h-6 min-w-6 text-center rounded inline-flex justify-center items-center cursor-default shrink-0",
 						{ "opacity-30 hover:bg-neutral-900": !canMoveDown },
@@ -296,7 +295,7 @@ export default function LayersPanel() {
 					onClick={canMoveDown ? handleMoveDown : undefined}
 				>
 					<ChevronDown className="text-neutral-100 w-4 h-4" />
-				</div>
+				</button>
 			</div>
 			<div className={"flex-1 overflow-auto pt-1 flex flex-col gap-0.5 px-1"}>
 				{sortedScenes.map((scene) => (
@@ -307,6 +306,7 @@ export default function LayersPanel() {
 						dragSourceId={dragSourceId}
 						dragOverId={dragOverId}
 						dragSourceType={dragSourceMeta?.type ?? null}
+						dragSourceRenderGroup={dragSourceMeta?.renderGroup ?? null}
 						onLayerClick={handleLayerClick}
 						onLayerUpdate={handleLayerUpdate}
 						onLayerDelete={handleRemove}
