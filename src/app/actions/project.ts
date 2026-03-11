@@ -648,6 +648,20 @@ export function touchProject() {
 	projectStore.setState({ lastModified: Date.now() });
 }
 
+export function updateProjectName(name: string) {
+	const nextName = name.trim() || DEFAULT_PROJECT_NAME;
+	const { projectName } = projectStore.getState();
+
+	if (nextName === projectName) {
+		return;
+	}
+
+	projectStore.setState({
+		projectName: nextName,
+		lastModified: Date.now(),
+	});
+}
+
 export function resetProject() {
 	projectStore.setState({ ...initialState });
 }

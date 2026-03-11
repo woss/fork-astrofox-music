@@ -7,7 +7,6 @@ import useAppStore, {
 import useProject, { DEFAULT_PROJECT_NAME } from "@/app/actions/project";
 import { player } from "@/app/global";
 import { env } from "@/app/global";
-import useWindowState from "@/app/hooks/useWindowState";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -17,12 +16,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "@/components/ui/tooltip";
 import menuConfig from "@/lib/config/menu.json";
 import {
 	Menu as MenuIcon,
@@ -30,7 +23,7 @@ import {
 	PanelLeft,
 	PanelRight,
 } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 const NAV_LABELS = ["File", "Edit"];
 
@@ -117,7 +110,6 @@ function createMenuItems(): MenuEntry[] {
 }
 
 export default function TitleBar() {
-	const { focused } = useWindowState();
 	const isVideoRecording = useAppStore((state) => state.isVideoRecording);
 	const isLeftPanelVisible = useAppStore((state) => state.isLeftPanelVisible);
 	const isBottomPanelVisible = useAppStore(
@@ -128,11 +120,6 @@ export default function TitleBar() {
 	const [hasAudio, setHasAudio] = useState(() => player.hasAudio());
 	const [menuItems, setMenuItems] = useState<MenuEntry[]>(createMenuItems);
 	const [menuOpen, setMenuOpen] = useState(false);
-	const [projectNameEditing, setProjectNameEditing] = useState(false);
-	const [projectNameDraft, setProjectNameDraft] = useState(
-		projectName || DEFAULT_PROJECT_NAME,
-	);
-	const projectNameInputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
 		const syncAudioAvailability = () => {
@@ -147,21 +134,6 @@ export default function TitleBar() {
 			player.off("audio-unload", syncAudioAvailability);
 		};
 	}, []);
-
-	useEffect(() => {
-		if (!projectNameEditing) {
-			setProjectNameDraft(projectName || DEFAULT_PROJECT_NAME);
-		}
-	}, [projectName, projectNameEditing]);
-
-	useEffect(() => {
-		if (!projectNameEditing || !projectNameInputRef.current) {
-			return;
-		}
-
-		projectNameInputRef.current.focus();
-		projectNameInputRef.current.select();
-	}, [projectNameEditing]);
 
 	function onMenuItemClick(item: MenuEntry) {
 		const { action, checked } = item;
@@ -183,44 +155,6 @@ export default function TitleBar() {
 
 		if (action) {
 			handleMenuAction(action);
-		}
-	}
-
-	function beginProjectNameEdit(event: React.MouseEvent<HTMLButtonElement>) {
-		event.stopPropagation();
-		setProjectNameDraft(projectName || DEFAULT_PROJECT_NAME);
-		setProjectNameEditing(true);
-	}
-
-	function cancelProjectNameEdit() {
-		setProjectNameDraft(projectName || DEFAULT_PROJECT_NAME);
-		setProjectNameEditing(false);
-	}
-
-	function commitProjectNameEdit() {
-		const nextName = (projectNameDraft || "").trim() || DEFAULT_PROJECT_NAME;
-		const currentName = (projectName || DEFAULT_PROJECT_NAME).trim();
-
-		if (nextName !== currentName) {
-			useProject.setState({
-				projectName: nextName,
-				lastModified: Date.now(),
-			});
-		}
-
-		setProjectNameEditing(false);
-	}
-
-	function onProjectNameKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-		if (event.key === "Enter") {
-			event.preventDefault();
-			commitProjectNameEdit();
-			return;
-		}
-
-		if (event.key === "Escape") {
-			event.preventDefault();
-			cancelProjectNameEdit();
 		}
 	}
 
@@ -317,48 +251,14 @@ export default function TitleBar() {
 						})}
 					</DropdownMenuContent>
 				</DropdownMenu>
-				{projectNameEditing ? (
-					<input
-						ref={projectNameInputRef}
-						type="text"
-						autoComplete="off"
-						autoCorrect="off"
-						autoCapitalize="off"
-						spellCheck={false}
-						className={
-							"h-7 px-2 rounded bg-neutral-800 border border-primary text-sm text-neutral-100 outline-none w-52 max-w-[32vw]"
-						}
-						value={projectNameDraft}
-						onBlur={commitProjectNameEdit}
-						onChange={(event) => setProjectNameDraft(event.target.value)}
-						onClick={(event) => event.stopPropagation()}
-						onKeyDown={onProjectNameKeyDown}
-					/>
-				) : (
-					<TooltipProvider>
-						<Tooltip>
-							<TooltipTrigger
-								render={
-									<Button
-										variant="ghost"
-										size="sm"
-										className="bg-transparent text-neutral-400 truncate max-w-[32vw] hover:text-neutral-100 hover:bg-neutral-800"
-										onClick={beginProjectNameEdit}
-									/>
-								}
-							>
-								{projectName || DEFAULT_PROJECT_NAME}
-							</TooltipTrigger>
-							<TooltipContent
-								side="bottom"
-								sideOffset={6}
-								className="rounded bg-neutral-950 px-3 py-2 text-sm text-neutral-200 shadow-lg z-100"
-							>
-								Click to rename project
-							</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
-				)}
+				<Button
+					variant="ghost"
+					size="sm"
+					className="bg-transparent text-neutral-400 truncate max-w-[32vw] hover:text-neutral-100 hover:bg-neutral-800"
+					onClick={() => handleMenuAction("edit-canvas")}
+				>
+					{projectName || DEFAULT_PROJECT_NAME}
+				</Button>
 			</div>
 			<div className="absolute left-1/2 -translate-x-1/2 text-sm leading-10 tracking-widest uppercase cursor-default max-[700px]:hidden text-neutral-400">
 				{env.APP_NAME}

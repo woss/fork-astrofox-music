@@ -1,3 +1,4 @@
+import useProject, { updateProjectName } from "@/app/actions/project";
 import useStage, { updateCanvas } from "@/app/actions/stage";
 import { Setting, Settings } from "@/app/components/controls";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ type CanvasSettingsProps = {
 };
 
 type CanvasSettingsState = {
+	projectName: string;
 	backgroundColor: string;
 	baseSize: number;
 	aspect: string;
@@ -99,14 +101,17 @@ function getCanvasDimensions(baseSize: number, aspectValue: string) {
 
 export default function CanvasSettings({ onClose }: CanvasSettingsProps) {
 	const stageConfig = useStage((state) => state);
+	const projectName = useProject((state) => state.projectName);
 	const [state, setState] = useState({
+		projectName,
 		backgroundColor: stageConfig.backgroundColor,
 		baseSize: getNearestBaseSize(
 			Math.min(stageConfig.width, stageConfig.height),
 		),
 		aspect: getInitialAspect(stageConfig.width, stageConfig.height),
 	});
-	const { baseSize, aspect, backgroundColor } = state;
+	const { projectName: draftProjectName, baseSize, aspect, backgroundColor } =
+		state;
 	const { width, height } = getCanvasDimensions(baseSize, aspect);
 
 	function handleChange(props: Partial<CanvasSettingsState>) {
@@ -118,6 +123,7 @@ export default function CanvasSettings({ onClose }: CanvasSettingsProps) {
 	}
 
 	async function handleSave() {
+		updateProjectName(draftProjectName);
 		await updateCanvas(width, height, backgroundColor);
 		onClose();
 	}
@@ -129,6 +135,15 @@ export default function CanvasSettings({ onClose }: CanvasSettingsProps) {
 					columns={["50%", "50%"]}
 					onChange={handleChange as (props: Record<string, unknown>) => void}
 				>
+					<Setting
+						label="Project Title"
+						type="text"
+						name="projectName"
+						value={draftProjectName}
+						width={220}
+						buffered
+						autoSelect
+					/>
 					<Setting
 						label="Format"
 						type="select"
