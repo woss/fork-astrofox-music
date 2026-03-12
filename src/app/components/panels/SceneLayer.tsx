@@ -134,7 +134,7 @@ export default function SceneLayer({
 				? layers.map((layer: SceneElement) => renderLayer(layer))
 				: null}
 			<div
-				className="ml-4 flex justify-center py-2"
+				className="ml-4 flex justify-center py-1"
 				onDragOver={(e) => {
 					if (
 						dragSourceType !== sectionType ||

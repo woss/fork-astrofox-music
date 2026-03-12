@@ -140,7 +140,9 @@ export default function ProjectBrowser({ onClose }: ProjectBrowserProps) {
 						)}
 					</div>
 					<div className={"flex gap-1.5"}>
-						<Button variant="default" size="sm" onClick={refreshProjects}>Refresh</Button>
+						<Button variant="default" size="sm" onClick={refreshProjects}>
+							Refresh
+						</Button>
 						<Button
 							variant="default"
 							size="sm"
@@ -171,7 +173,9 @@ export default function ProjectBrowser({ onClose }: ProjectBrowserProps) {
 						}
 					/>
 					<div className={"flex gap-1.5"}>
-						<Button variant="default" size="sm" onClick={handleCreateProject}>Create</Button>
+						<Button variant="default" size="sm" onClick={handleCreateProject}>
+							Create
+						</Button>
 					</div>
 
 					<div className={"text-sm font-bold uppercase opacity-[0.8]"}>
@@ -212,9 +216,13 @@ export default function ProjectBrowser({ onClose }: ProjectBrowserProps) {
 					</div>
 				</div>
 			</div>
-			<div className="shrink-0 border-t border-neutral-700 bg-neutral-800 px-4 py-3">
+			<div className="shrink-0 bg-neutral-800 px-4 py-3">
 				<div className="flex items-center justify-between gap-3">
-					{error ? <div className="text-sm text-[#ff7d7d]">{error}</div> : <div />}
+					{error ? (
+						<div className="text-sm text-[#ff7d7d]">{error}</div>
+					) : (
+						<div />
+					)}
 					<DialogFooter className="sm:justify-end">
 						<Button variant="default" size="sm" onClick={onClose}>
 							Close

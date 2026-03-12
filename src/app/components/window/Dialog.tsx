@@ -28,21 +28,23 @@ export default function Dialog({
 						)}
 					/>
 				)}
-				<div className="flex-1 text-sm leading-6 text-neutral-100">{message}</div>
+				<div className="flex-1 text-sm leading-6 text-neutral-100">
+					{message}
+				</div>
 			</div>
 			{buttons && (
-				<div className="shrink-0 border-t border-neutral-700 bg-neutral-800 px-4 py-3">
+				<div className="shrink-0 bg-neutral-800 px-4 py-3">
 					<DialogFooter className="sm:justify-end">
-					{buttons.map((button: string) => (
-						<Button
-							key={button}
-							variant="default"
-							size="sm"
-							onClick={() => onConfirm?.(button)}
-						>
-							{button}
-						</Button>
-					))}
+						{buttons.map((button: string) => (
+							<Button
+								key={button}
+								variant="default"
+								size="sm"
+								onClick={() => onConfirm?.(button)}
+							>
+								{button}
+							</Button>
+						))}
 					</DialogFooter>
 				</div>
 			)}

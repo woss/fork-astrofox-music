@@ -64,6 +64,7 @@ export default function SaveVideoDialog({
 	const [isChoosingLocation, setIsChoosingLocation] = useState(false);
 	const [isChoosingAudio, setIsChoosingAudio] = useState(false);
 	const keepSegmentOverlayRef = useRef(false);
+	const hasSelectedAudio = Boolean(audioFileName);
 	const effectiveMinExportDuration = Math.min(
 		MIN_EXPORT_DURATION,
 		Math.max(totalDuration, 0),
@@ -277,6 +278,7 @@ export default function SaveVideoDialog({
 						type="text"
 						readOnly
 						value={filePath}
+						placeholder="No video file selected"
 						className="w-full rounded border border-border-input bg-neutral-900 px-3 py-2 font-mono text-xs text-neutral-300 outline-none"
 					/>
 				</section>
@@ -286,7 +288,7 @@ export default function SaveVideoDialog({
 						Time duration
 					</h3>
 					<div className="grid grid-cols-2 gap-4 max-[520px]:grid-cols-1">
-						<div className="flex flex-col gap-3.5">
+						<div className="flex flex-col gap-1.5">
 							<label
 								htmlFor="video-export-start-time"
 								className="block text-xs uppercase tracking-wide text-neutral-400"
@@ -311,7 +313,7 @@ export default function SaveVideoDialog({
 								}}
 							/>
 						</div>
-						<div className="flex flex-col gap-3.5">
+						<div className="flex flex-col gap-1.5">
 							<label
 								htmlFor="video-export-end-time"
 								className="block text-xs uppercase tracking-wide text-neutral-400"
@@ -349,7 +351,7 @@ export default function SaveVideoDialog({
 						min={0}
 						max={Math.max(totalDuration, 0)}
 						step={0.01}
-						disabled={totalDuration <= 0}
+						disabled={!hasSelectedAudio || totalDuration <= 0}
 						onChange={handleTimeRangeUpdate}
 						onUpdate={handleTimeRangeUpdate}
 					/>
@@ -378,7 +380,7 @@ export default function SaveVideoDialog({
 					</div>
 				) : null}
 			</div>
-			<div className="shrink-0 border-t border-neutral-700 bg-neutral-800 px-4 py-3">
+			<div className="shrink-0 bg-neutral-800 px-4 py-3">
 				<DialogFooter className="justify-end sm:justify-end">
 					<Button
 						variant="default"

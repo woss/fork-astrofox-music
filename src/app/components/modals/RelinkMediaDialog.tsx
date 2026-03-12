@@ -1,4 +1,7 @@
-import useProject, { relinkMediaRef, type MediaRef } from "@/app/actions/project";
+import useProject, {
+	relinkMediaRef,
+	type MediaRef,
+} from "@/app/actions/project";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import React, { useState } from "react";
@@ -25,7 +28,7 @@ export default function RelinkMediaDialog({ onClose }: RelinkMediaDialogProps) {
 				<div className="flex-1 p-4 text-sm opacity-[0.8]">
 					All media links are resolved.
 				</div>
-				<div className="shrink-0 border-t border-neutral-700 bg-neutral-800 px-4 py-3">
+				<div className="shrink-0 bg-neutral-800 px-4 py-3">
 					<DialogFooter className="sm:justify-end">
 						<Button variant="default" size="sm" onClick={onClose}>
 							Close
@@ -56,7 +59,9 @@ export default function RelinkMediaDialog({ onClose }: RelinkMediaDialogProps) {
 									{ref.label} ({ref.kind})
 								</div>
 								{ref.sourcePath ? (
-									<div className={"max-w-[24rem] truncate text-xs opacity-[0.7]"}>
+									<div
+										className={"max-w-[24rem] truncate text-xs opacity-[0.7]"}
+									>
 										{ref.sourcePath}
 									</div>
 								) : null}
@@ -73,7 +78,7 @@ export default function RelinkMediaDialog({ onClose }: RelinkMediaDialogProps) {
 					))}
 				</div>
 			</div>
-			<div className="shrink-0 border-t border-neutral-700 bg-neutral-800 px-4 py-3">
+			<div className="shrink-0 bg-neutral-800 px-4 py-3">
 				<DialogFooter className="sm:justify-end">
 					<Button variant="default" size="sm" onClick={onClose}>
 						Close

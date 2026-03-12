@@ -1,6 +1,6 @@
+import { env } from "@/app/global";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
-import { env } from "@/app/global";
 import React from "react";
 
 const { APP_NAME, APP_VERSION } = env;
@@ -25,9 +25,11 @@ export default function About({ onClose }: AboutProps) {
 					{APP_NAME}
 				</div>
 				<div className="mb-1">{`Version ${APP_VERSION}`}</div>
-				<div className="mb-2 text-neutral-300">{"Copyright \u00A9 Mike Cao"}</div>
+				<div className="mb-2 text-neutral-300">
+					{"Copyright \u00A9 Mike Cao"}
+				</div>
 			</div>
-			<div className="shrink-0 border-t border-neutral-700 bg-neutral-800 px-4 py-3">
+			<div className="shrink-0 bg-neutral-800 px-4 py-3">
 				<DialogFooter className="sm:justify-end">
 					<Button variant="default" size="sm" onClick={onClose}>
 						Close

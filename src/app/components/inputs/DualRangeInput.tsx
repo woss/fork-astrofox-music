@@ -54,7 +54,7 @@ export default function DualRangeInput({
 
 	return (
 		<SliderPrimitive.Root
-			className={cn("relative h-6 w-full", className)}
+			className={cn("relative h-6 w-full group", className)}
 			value={bufferedValue}
 			min={min}
 			max={max}
@@ -67,10 +67,30 @@ export default function DualRangeInput({
 		>
 			<SliderPrimitive.Control className="flex h-6 w-full items-center">
 				<SliderPrimitive.Track className="relative h-1.5 w-full rounded bg-neutral-700">
-					<SliderPrimitive.Indicator className="h-full rounded bg-primary" />
+					<SliderPrimitive.Indicator
+						className={cn("h-full rounded bg-primary", {
+							hidden: disabled,
+						})}
+					/>
 				</SliderPrimitive.Track>
-				<SliderPrimitive.Thumb className="block size-3.5 rounded-full border border-border-input bg-neutral-100 shadow-[0_2px_5px_rgba(0,0,0,0.3)]" />
-				<SliderPrimitive.Thumb className="block size-3.5 rounded-full border border-border-input bg-neutral-100 shadow-[0_2px_5px_rgba(0,0,0,0.3)]" />
+				<SliderPrimitive.Thumb
+					className={cn(
+						"block size-3.5 rounded-full border border-border-input shadow-[0_2px_5px_rgba(0,0,0,0.3)]",
+						"bg-neutral-100",
+						{
+							invisible: disabled,
+						},
+					)}
+				/>
+				<SliderPrimitive.Thumb
+					className={cn(
+						"block size-3.5 rounded-full border border-border-input shadow-[0_2px_5px_rgba(0,0,0,0.3)]",
+						"bg-neutral-100",
+						{
+							invisible: disabled,
+						},
+					)}
+				/>
 			</SliderPrimitive.Control>
 		</SliderPrimitive.Root>
 	);

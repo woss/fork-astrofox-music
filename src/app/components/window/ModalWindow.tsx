@@ -29,7 +29,7 @@ export default function ModalWindow({
 			)}
 		>
 			{title && (
-				<div className="shrink-0 border-b border-neutral-700 bg-neutral-800 px-4 py-2.5 text-center">
+				<div className="shrink-0 bg-neutral-800 px-4 py-2.5 text-center">
 					<DialogTitle className="cursor-default text-sm uppercase tracking-wider text-neutral-100">
 						{title}
 					</DialogTitle>
@@ -43,11 +43,11 @@ export default function ModalWindow({
 				)}
 			</div>
 			{buttons && (
-				<div className="shrink-0 border-t border-neutral-700 bg-neutral-800 px-4 py-3">
+				<div className="shrink-0 bg-neutral-800 px-4 py-3">
 					<DialogFooter className="sm:justify-end">
-						{buttons.map((text: string, index: number) => (
+						{buttons.map((text: string) => (
 							<Button
-								key={index}
+								key={text}
 								variant="default"
 								size="sm"
 								onClick={() => onClose?.(text)}

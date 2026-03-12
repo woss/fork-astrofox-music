@@ -142,12 +142,7 @@ export default function AudioWaveform() {
 			);
 
 			context.fillStyle = "rgba(108, 95, 191, 0.18)";
-			context.fillRect(
-				selectionStart,
-				0,
-				selectionWidth,
-				canvasProperties.height,
-			);
+			context.fillRect(selectionStart, 0, selectionWidth, height);
 		}
 
 		if (videoExportSegment) {

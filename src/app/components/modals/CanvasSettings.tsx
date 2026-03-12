@@ -110,8 +110,12 @@ export default function CanvasSettings({ onClose }: CanvasSettingsProps) {
 		),
 		aspect: getInitialAspect(stageConfig.width, stageConfig.height),
 	});
-	const { projectName: draftProjectName, baseSize, aspect, backgroundColor } =
-		state;
+	const {
+		projectName: draftProjectName,
+		baseSize,
+		aspect,
+		backgroundColor,
+	} = state;
 	const { width, height } = getCanvasDimensions(baseSize, aspect);
 
 	function handleChange(props: Partial<CanvasSettingsState>) {
@@ -178,7 +182,7 @@ export default function CanvasSettings({ onClose }: CanvasSettingsProps) {
 					/>
 				</Settings>
 			</div>
-			<div className="shrink-0 border-t border-neutral-700 bg-neutral-800 px-4 py-3">
+			<div className="shrink-0 bg-neutral-800 px-4 py-3">
 				<DialogFooter className="justify-end sm:justify-end">
 					<Button variant="default" size="sm" onClick={handleSave}>
 						OK

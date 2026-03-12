@@ -1,5 +1,5 @@
-import { player } from "@/app/global";
 import useAppStore from "@/app/actions/app";
+import { player } from "@/app/global";
 import useForceUpdate from "@/app/hooks/useForceUpdate";
 import { Cycle } from "@/app/icons";
 import {
@@ -53,7 +53,8 @@ const ToggleButton = ({ enabled, title, icon, onClick }: ToggleButtonProps) => {
 			<Tooltip>
 				<TooltipTrigger
 					render={
-						<div
+						<button
+							type="button"
 							className={"mr-2.5 [&:last-child]:mr-0 cursor-default"}
 							onClick={onClick}
 						/>
@@ -63,7 +64,7 @@ const ToggleButton = ({ enabled, title, icon, onClick }: ToggleButtonProps) => {
 						<IconComponent
 							className={classNames("w-4 h-4", {
 								"!text-neutral-500 hover:!text-neutral-400": !enabled,
-								"!text-primary hover:!text-primary": enabled,
+								"!text-neutral-200 hover:!text-neutral-100": enabled,
 							})}
 						/>
 					)}

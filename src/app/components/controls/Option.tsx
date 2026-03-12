@@ -4,7 +4,7 @@ import {
 	ReactorButton,
 	ReactorInput,
 } from "@/app/components/inputs";
-import { Link, Unlink } from "@/app/icons";
+import { Link } from "@/app/icons";
 import type Display from "@/lib/core/Display";
 import classNames from "classnames";
 import type React from "react";
@@ -47,7 +47,6 @@ export default function Option({
 		: [];
 	const showReactor = withReactor && display.getReactor?.(name);
 	const linked = Boolean(withLink && display.properties[withLink]);
-	const LinkIcon = linked ? Link : Unlink;
 	const { min, max } = otherProps;
 	const inputs: React.ReactNode[] = [];
 
@@ -128,8 +127,8 @@ export default function Option({
 					{label}
 				</div>
 				{withLink && (
-					<LinkIcon
-						className={classNames("w-4 h-4", {
+					<Link
+						className={classNames("h-3.5 w-3.5", {
 							"text-neutral-100": linked,
 							"text-neutral-500 opacity-50": !linked,
 						})}

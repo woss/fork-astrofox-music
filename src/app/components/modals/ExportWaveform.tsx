@@ -99,7 +99,7 @@ export default function ExportWaveform({
 	}, [baseCanvas, duration, endTime, selectionCanvas, startTime]);
 
 	return (
-		<div className="overflow-hidden rounded border border-neutral-700 bg-neutral-900 py-2 shadow-[inset_0_0_24px_rgba(0,0,0,0.35)]">
+		<div className="overflow-hidden rounded border border-neutral-700 bg-neutral-900 px-3 py-3 shadow-[inset_0_0_24px_rgba(0,0,0,0.35)]">
 			<canvas
 				ref={canvasRef}
 				className="block h-[88px] w-full"

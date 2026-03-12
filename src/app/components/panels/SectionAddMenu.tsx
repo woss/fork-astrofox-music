@@ -91,12 +91,12 @@ export default function SectionAddMenu({
 				render={
 					<button
 						type="button"
-						className="inline-flex h-7 min-w-7 items-center justify-center rounded-md border border-neutral-700 bg-neutral-900 text-neutral-400 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+						className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-neutral-700 bg-neutral-900 text-neutral-400 transition-colors hover:border-neutral-500 hover:text-neutral-100"
 						aria-label={ariaLabel}
 					/>
 				}
 			>
-				<Plus className="h-4 w-4" />
+				<Plus className="h-3.5 w-3.5" />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
 				className="min-w-44 rounded border-neutral-700 bg-neutral-900 p-1 shadow-lg"

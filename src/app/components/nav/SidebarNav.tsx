@@ -85,12 +85,12 @@ export default function SidebarNav() {
 
 	return (
 		<TooltipProvider>
-			<aside className="flex w-14 shrink-0 self-stretch flex-col items-center border-r border-neutral-700 px-2 py-3">
+			<aside className="flex w-14 shrink-0 self-stretch flex-col items-center border-r px-2 py-3">
 				<div className="flex w-full flex-1 flex-col items-center gap-2">
 					{sections.map((section, sectionIndex) => (
 						<React.Fragment key={section.map((item) => item.action).join("-")}>
 							{sectionIndex > 0 ? (
-								<div className="my-1 h-px w-8 bg-neutral-800" />
+								<div className="my-2 h-px w-8 bg-neutral-600" />
 							) : null}
 							{section.map((item) => {
 								const Icon = item.icon;
