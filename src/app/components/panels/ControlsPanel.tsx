@@ -18,8 +18,10 @@ interface ControlItem {
 const ControlCard = React.memo(
 	function ControlCard({
 		item,
+		active,
 	}: {
 		item: ControlItem;
+		active: boolean;
 	}) {
 		const display = stage.getStageElementById(item.id);
 
@@ -36,13 +38,15 @@ const ControlCard = React.memo(
 					display={
 						display as unknown as Parameters<typeof Control>[0]["display"]
 					}
+					active={active}
 					onNameClick={setActiveElementId}
 				/>
 			</div>
 		);
 	},
 	(prevProps, nextProps) =>
-		prevProps.item.descriptor === nextProps.item.descriptor,
+		prevProps.item.descriptor === nextProps.item.descriptor &&
+		prevProps.active === nextProps.active,
 );
 
 export default function ControlsPanel() {
@@ -109,7 +113,11 @@ export default function ControlsPanel() {
 			ref={panelRef}
 		>
 			{controlItems.map((item) => (
-				<ControlCard key={item.id} item={item} />
+				<ControlCard
+					key={item.id}
+					item={item}
+					active={item.id === activeElementId}
+				/>
 			))}
 		</div>
 	);
