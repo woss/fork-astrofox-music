@@ -1,4 +1,5 @@
 // @ts-nocheck
+import useApp from "@/app/actions/app";
 import { BLANK_IMAGE } from "@/app/constants";
 import React from "react";
 import { Color } from "three";
@@ -34,6 +35,7 @@ export default function R3FStageRoot({
 	frameData,
 	frameIndex,
 }) {
+	const cameraModeSceneId = useApp((state) => state.cameraModeSceneId);
 	const bgColor = React.useMemo(
 		() => new Color(backgroundColor),
 		[backgroundColor],
@@ -179,6 +181,9 @@ export default function R3FStageRoot({
 			<React.Fragment key={scene.id}>
 				{scene3D.length > 0 && (
 					<PerspectiveScene3D
+						sceneId={scene.id}
+						sceneProperties={scene.properties || {}}
+						cameraModeActive={cameraModeSceneId === scene.id}
 						width={width}
 						height={height}
 						renderOrder={scene3DOrder}

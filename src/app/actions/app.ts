@@ -31,6 +31,7 @@ interface AppState {
 	showReactor: boolean;
 	activeReactorId: string | null;
 	activeElementId: string | null;
+	cameraModeSceneId: string | null;
 	isLeftPanelVisible: boolean;
 	isBottomPanelVisible: boolean;
 	isRightPanelVisible: boolean;
@@ -102,6 +103,7 @@ const initialState: AppState = {
 	showReactor: false,
 	activeReactorId: null,
 	activeElementId: null,
+	cameraModeSceneId: null,
 	isLeftPanelVisible: true,
 	isBottomPanelVisible: true,
 	isRightPanelVisible: true,
@@ -507,6 +509,13 @@ export function setActiveReactorId(reactorId?: string | null) {
 
 export function setActiveElementId(elementId?: string | null) {
 	appStore.setState({ activeElementId: elementId || null });
+}
+
+export function toggleSceneCameraMode(sceneId?: string | null) {
+	appStore.setState((state) => ({
+		cameraModeSceneId:
+			state.cameraModeSceneId === (sceneId || null) ? null : (sceneId ?? null),
+	}));
 }
 
 export function toggleLeftPanelVisibility() {

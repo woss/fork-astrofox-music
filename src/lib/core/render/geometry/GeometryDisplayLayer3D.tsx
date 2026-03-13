@@ -39,7 +39,6 @@ export function GeometryDisplayLayer3D({
 		opacity = 1,
 		lightIntensity = 1,
 		lightDistance = 500,
-		cameraZoom = 250,
 	} = properties;
 
 	const parserRef = React.useRef(new FFTParser(properties));
@@ -61,7 +60,6 @@ export function GeometryDisplayLayer3D({
 		rotationRef.current.y,
 		rotationRef.current.z,
 	];
-	const uniformScale = cameraZoom > 0 ? 250 / cameraZoom : 1;
 	const finalOpacity = Math.max(
 		0,
 		Math.min(1, Number(opacity ?? 1) * Number(sceneOpacity ?? 1)),
@@ -75,7 +73,7 @@ export function GeometryDisplayLayer3D({
 		: 0.9 * Number(sceneOpacity ?? 1);
 
 	return (
-		<group scale={[uniformScale, uniformScale, uniformScale]}>
+		<group>
 			<ambientLight intensity={0.3 * lightIntensity} />
 			<pointLight
 				key="light-0"

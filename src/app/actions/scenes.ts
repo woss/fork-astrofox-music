@@ -295,6 +295,13 @@ export function updateElement(id, prop, value) {
 export function updateElementProperty(id, prop, value) {
 	updateScenes((scenes) =>
 		scenes.map((scene) => {
+			if (scene.id === id) {
+				return {
+					...scene,
+					properties: { ...scene.properties, [prop]: value },
+				};
+			}
+
 			const displays = scene.displays.map((display) =>
 				display.id === id
 					? {

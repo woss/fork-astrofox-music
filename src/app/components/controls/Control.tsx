@@ -1,5 +1,6 @@
 import Option from "@/app/components/controls/Option";
 import useEntity from "@/app/hooks/useEntity";
+import { Video } from "@/app/icons";
 import type Display from "@/lib/core/Display";
 import { resolve } from "@/lib/utils/object";
 import { inputValueToProps } from "@/lib/utils/react";
@@ -22,6 +23,8 @@ interface ControlProps {
 	showHeader?: boolean;
 	active?: boolean;
 	onNameClick?: (id: string) => void;
+	cameraModeActive?: boolean;
+	onCameraModeToggle?: (id: string) => void;
 }
 
 export default function Control({
@@ -30,6 +33,8 @@ export default function Control({
 	showHeader = true,
 	active = false,
 	onNameClick,
+	cameraModeActive = false,
+	onCameraModeToggle,
 }: ControlProps) {
 	const {
 		id,
@@ -69,15 +74,32 @@ export default function Control({
 							"flex items-center justify-between text-xs text-neutral-100 overflow-hidden gap"
 						}
 					>
-						<div
-							className="inline-flex border-b-2 border-b-transparent uppercase"
-							style={{
-								borderBottomColor: active
-									? "var(--color-primary)"
-									: "transparent",
-							}}
-						>
-							{label}
+						<div className="flex items-center gap-2">
+							<div
+								className="inline-flex border-b-2 border-b-transparent uppercase"
+								style={{
+									borderBottomColor: active
+										? "var(--color-primary)"
+										: "transparent",
+								}}
+							>
+								{label}
+							</div>
+							{display.name === "Scene" && onCameraModeToggle ? (
+								<button
+									type="button"
+									className={classNames(
+										"inline-flex h-5 w-5 items-center justify-center rounded bg-transparent text-neutral-500 transition-colors hover:text-neutral-100",
+										{
+											"bg-primary text-white": cameraModeActive,
+											"text-neutral-500": !cameraModeActive,
+										},
+									)}
+									onClick={() => onCameraModeToggle(id)}
+								>
+									<Video className="h-3.5 w-3.5" />
+								</button>
+							) : null}
 						</div>
 						<button
 							type="button"

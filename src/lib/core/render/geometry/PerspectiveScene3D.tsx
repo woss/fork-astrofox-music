@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { updateElementProperty } from "@/app/actions/scenes";
 import { createPortal, useFrame, useThree } from "@react-three/fiber";
 import React from "react";
 import {
@@ -36,6 +37,9 @@ function createRenderTarget(width, height, withDepth = false) {
 }
 
 export function PerspectiveScene3D({
+	sceneId,
+	sceneProperties = {},
+	cameraModeActive = false,
 	width,
 	height,
 	renderOrder = 0,
@@ -66,11 +70,164 @@ export function PerspectiveScene3D({
 		return cam;
 	}, []);
 
+	const clampPolar = React.useCallback(
+		(value) =>
+			Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, value)),
+		[],
+	);
+	const clampDistance = React.useCallback(
+		(value) => Math.max(50, Math.min(5000, value)),
+		[],
+	);
+	const cameraStateRef = React.useRef({
+		azimuth: 0,
+		polar: 0,
+		distance: cameraZ,
+	});
+	const dragStateRef = React.useRef({
+		active: false,
+		lastX: 0,
+		lastY: 0,
+	});
+
+	const applyCameraState = React.useCallback(
+		(nextState) => {
+			cameraStateRef.current = nextState;
+
+			const cosPolar = Math.cos(nextState.polar);
+			const x = Math.sin(nextState.azimuth) * cosPolar * nextState.distance;
+			const y = Math.sin(nextState.polar) * nextState.distance;
+			const z = Math.cos(nextState.azimuth) * cosPolar * nextState.distance;
+
+			perspCamera.position.set(x, y, z);
+			perspCamera.lookAt(0, 0, 0);
+			perspCamera.updateProjectionMatrix();
+		},
+		[perspCamera],
+	);
+
+	const persistCameraState = React.useCallback(
+		(nextState) => {
+			if (!sceneId) {
+				return;
+			}
+
+			updateElementProperty(sceneId, "cameraAzimuth", nextState.azimuth);
+			updateElementProperty(sceneId, "cameraPolar", nextState.polar);
+			updateElementProperty(sceneId, "cameraDistance", nextState.distance);
+		},
+		[sceneId],
+	);
+
 	React.useEffect(() => {
 		perspCamera.aspect = width / height;
-		perspCamera.position.z = cameraZ;
-		perspCamera.updateProjectionMatrix();
-	}, [perspCamera, width, height, cameraZ]);
+		applyCameraState(cameraStateRef.current);
+	}, [applyCameraState, perspCamera, width, height, cameraZ]);
+
+	React.useEffect(() => {
+		if (dragStateRef.current.active) {
+			return;
+		}
+
+		applyCameraState({
+			azimuth: Number(sceneProperties.cameraAzimuth ?? 0),
+			polar: clampPolar(Number(sceneProperties.cameraPolar ?? 0)),
+			distance: clampDistance(
+				Number(sceneProperties.cameraDistance ?? cameraZ) || cameraZ,
+			),
+		});
+	}, [
+		applyCameraState,
+		cameraZ,
+		clampDistance,
+		clampPolar,
+		sceneProperties.cameraAzimuth,
+		sceneProperties.cameraDistance,
+		sceneProperties.cameraPolar,
+	]);
+
+	React.useEffect(() => {
+		if (!cameraModeActive) {
+			return;
+		}
+
+		const element = gl.domElement;
+		const ownerDocument = element.ownerDocument;
+		element.style.cursor = "grab";
+
+		function handlePointerDown(event) {
+			if (event.button !== 0) {
+				return;
+			}
+
+			dragStateRef.current.active = true;
+			dragStateRef.current.lastX = event.clientX;
+			dragStateRef.current.lastY = event.clientY;
+			element.style.cursor = "grabbing";
+			event.preventDefault();
+		}
+
+		function handlePointerMove(event) {
+			if (!dragStateRef.current.active) {
+				return;
+			}
+
+			const dx = event.clientX - dragStateRef.current.lastX;
+			const dy = event.clientY - dragStateRef.current.lastY;
+			dragStateRef.current.lastX = event.clientX;
+			dragStateRef.current.lastY = event.clientY;
+
+			applyCameraState({
+				...cameraStateRef.current,
+				azimuth: cameraStateRef.current.azimuth - dx * 0.01,
+				polar: clampPolar(cameraStateRef.current.polar - dy * 0.01),
+			});
+		}
+
+		function handlePointerUp() {
+			if (!dragStateRef.current.active) {
+				return;
+			}
+
+			dragStateRef.current.active = false;
+			element.style.cursor = "grab";
+			persistCameraState(cameraStateRef.current);
+		}
+
+		function handleWheel(event) {
+			event.preventDefault();
+
+			const nextState = {
+				...cameraStateRef.current,
+				distance: clampDistance(
+					cameraStateRef.current.distance * Math.exp(event.deltaY * 0.0015),
+				),
+			};
+
+			applyCameraState(nextState);
+			persistCameraState(nextState);
+		}
+
+		element.addEventListener("pointerdown", handlePointerDown);
+		ownerDocument.addEventListener("pointermove", handlePointerMove);
+		ownerDocument.addEventListener("pointerup", handlePointerUp);
+		element.addEventListener("wheel", handleWheel, { passive: false });
+
+		return () => {
+			element.style.cursor = "";
+			element.removeEventListener("pointerdown", handlePointerDown);
+			ownerDocument.removeEventListener("pointermove", handlePointerMove);
+			ownerDocument.removeEventListener("pointerup", handlePointerUp);
+			element.removeEventListener("wheel", handleWheel);
+		};
+	}, [
+		applyCameraState,
+		cameraModeActive,
+		clampDistance,
+		clampPolar,
+		gl,
+		persistCameraState,
+	]);
 
 	const colorTarget = React.useMemo(
 		() => createRenderTarget(width, height, true),

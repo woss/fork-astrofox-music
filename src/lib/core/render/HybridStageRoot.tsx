@@ -1,4 +1,5 @@
 // @ts-nocheck
+import useApp from "@/app/actions/app";
 import { BLANK_IMAGE } from "@/app/constants";
 import { useFrame } from "@react-three/fiber";
 import React from "react";
@@ -42,6 +43,7 @@ export default function HybridStageRoot({
 	sceneLayersRef,
 	onPresent,
 }) {
+	const cameraModeSceneId = useApp((state) => state.cameraModeSceneId);
 	let order = 1;
 	let sceneOrder = 0;
 	const sceneProducers = [];
@@ -182,6 +184,9 @@ export default function HybridStageRoot({
 			<React.Fragment key={scene.id}>
 				{scene3D.length > 0 && (
 					<PerspectiveScene3D
+						sceneId={scene.id}
+						sceneProperties={scene.properties || {}}
+						cameraModeActive={cameraModeSceneId === scene.id}
 						width={width}
 						height={height}
 						renderOrder={scene3DOrder}

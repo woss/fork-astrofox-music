@@ -1,4 +1,7 @@
-import useApp, { setActiveElementId } from "@/app/actions/app";
+import useApp, {
+	setActiveElementId,
+	toggleSceneCameraMode,
+} from "@/app/actions/app";
 import useScenes from "@/app/actions/scenes";
 import Control from "@/app/components/controls/Control";
 import { stage } from "@/app/global";
@@ -19,9 +22,11 @@ const ControlCard = React.memo(
 	function ControlCard({
 		item,
 		active,
+		cameraModeActive,
 	}: {
 		item: ControlItem;
 		active: boolean;
+		cameraModeActive: boolean;
 	}) {
 		const display = stage.getStageElementById(item.id);
 
@@ -39,6 +44,8 @@ const ControlCard = React.memo(
 						display as unknown as Parameters<typeof Control>[0]["display"]
 					}
 					active={active}
+					cameraModeActive={cameraModeActive}
+					onCameraModeToggle={toggleSceneCameraMode}
 					onNameClick={setActiveElementId}
 				/>
 			</div>
@@ -46,11 +53,13 @@ const ControlCard = React.memo(
 	},
 	(prevProps, nextProps) =>
 		prevProps.item.descriptor === nextProps.item.descriptor &&
-		prevProps.active === nextProps.active,
+		prevProps.active === nextProps.active &&
+		prevProps.cameraModeActive === nextProps.cameraModeActive,
 );
 
 export default function ControlsPanel() {
 	const activeElementId = useApp((state) => state.activeElementId);
+	const cameraModeSceneId = useApp((state) => state.cameraModeSceneId);
 	const sceneOrder = useScenes((state) => state.sceneOrder);
 	const sceneById = useScenes((state) => state.sceneById) as Record<
 		string,
@@ -117,6 +126,7 @@ export default function ControlsPanel() {
 					key={item.id}
 					item={item}
 					active={item.id === activeElementId}
+					cameraModeActive={item.id === cameraModeSceneId}
 				/>
 			))}
 		</div>

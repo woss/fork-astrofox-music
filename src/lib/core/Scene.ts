@@ -61,6 +61,9 @@ export default class Scene extends Display {
 			mask: false,
 			inverse: false,
 			stencil: false,
+			cameraDistance: 0,
+			cameraAzimuth: 0,
+			cameraPolar: 0,
 		},
 		controls: {
 			blendMode: {
@@ -116,17 +119,17 @@ export default class Scene extends Display {
 	}
 
 	setSize(width: number, height: number) {
-		this.displays.forEach((display: SceneElement) => {
+		for (const display of this.displays as SceneElement[]) {
 			if (display.setSize) {
 				display.setSize(width, height);
 			}
-		});
+		}
 
-		this.effects.forEach((effect: SceneElement) => {
+		for (const effect of this.effects as SceneElement[]) {
 			if (effect.setSize) {
 				effect.setSize(width, height);
 			}
-		});
+		}
 	}
 
 	getTarget(obj: unknown): EntityList {

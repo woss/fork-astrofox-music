@@ -49,7 +49,6 @@ export default class GeometryDisplay extends Display {
 			seed: 0,
 			lightIntensity: 1.0,
 			lightDistance: 500,
-			cameraZoom: 250,
 		},
 		controls: {
 			shape: {
