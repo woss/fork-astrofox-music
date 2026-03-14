@@ -293,12 +293,16 @@ export function updateElement(id, prop, value) {
 }
 
 export function updateElementProperty(id, prop, value) {
+	updateElementProperties(id, { [prop]: value });
+}
+
+export function updateElementProperties(id, properties) {
 	updateScenes((scenes) =>
 		scenes.map((scene) => {
 			if (scene.id === id) {
 				return {
 					...scene,
-					properties: { ...scene.properties, [prop]: value },
+					properties: { ...scene.properties, ...properties },
 				};
 			}
 
@@ -306,7 +310,7 @@ export function updateElementProperty(id, prop, value) {
 				display.id === id
 					? {
 							...display,
-							properties: { ...display.properties, [prop]: value },
+							properties: { ...display.properties, ...properties },
 						}
 					: display,
 			);
@@ -314,7 +318,7 @@ export function updateElementProperty(id, prop, value) {
 				effect.id === id
 					? {
 							...effect,
-							properties: { ...effect.properties, [prop]: value },
+							properties: { ...effect.properties, ...properties },
 						}
 					: effect,
 			);
@@ -330,7 +334,7 @@ export function updateElementProperty(id, prop, value) {
 	const element = stage.getStageElementById(id);
 
 	if (element) {
-		element.update({ [prop]: value });
+		element.update(properties);
 	}
 }
 

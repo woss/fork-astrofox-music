@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { updateElementProperty } from "@/app/actions/scenes";
+import { updateElementProperties } from "@/app/actions/scenes";
 import { createPortal, useFrame, useThree } from "@react-three/fiber";
 import React from "react";
 import {
@@ -17,6 +17,7 @@ import ShaderPass from "../composer/ShaderPass";
 import DepthOfFieldShader from "../effects/shaders/DepthOfFieldShader";
 
 const PERSPECTIVE_FOV = 50;
+const CAMERA_PERSIST_DELAY_MS = 120;
 
 function createRenderTarget(width, height, withDepth = false) {
 	const target = new WebGLRenderTarget(width, height, {
@@ -89,6 +90,7 @@ export function PerspectiveScene3D({
 		lastX: 0,
 		lastY: 0,
 	});
+	const persistTimeoutRef = React.useRef(null);
 
 	const applyCameraState = React.useCallback(
 		(nextState) => {
@@ -112,9 +114,11 @@ export function PerspectiveScene3D({
 				return;
 			}
 
-			updateElementProperty(sceneId, "cameraAzimuth", nextState.azimuth);
-			updateElementProperty(sceneId, "cameraPolar", nextState.polar);
-			updateElementProperty(sceneId, "cameraDistance", nextState.distance);
+			updateElementProperties(sceneId, {
+				cameraAzimuth: nextState.azimuth,
+				cameraPolar: nextState.polar,
+				cameraDistance: nextState.distance,
+			});
 		},
 		[sceneId],
 	);
@@ -155,6 +159,21 @@ export function PerspectiveScene3D({
 		const ownerDocument = element.ownerDocument;
 		element.style.cursor = "grab";
 
+		function clearPersistTimeout() {
+			if (persistTimeoutRef.current) {
+				window.clearTimeout(persistTimeoutRef.current);
+				persistTimeoutRef.current = null;
+			}
+		}
+
+		function schedulePersist(nextState) {
+			clearPersistTimeout();
+			persistTimeoutRef.current = window.setTimeout(() => {
+				persistTimeoutRef.current = null;
+				persistCameraState(nextState);
+			}, CAMERA_PERSIST_DELAY_MS);
+		}
+
 		function handlePointerDown(event) {
 			if (event.button !== 0) {
 				return;
@@ -191,6 +210,7 @@ export function PerspectiveScene3D({
 
 			dragStateRef.current.active = false;
 			element.style.cursor = "grab";
+			clearPersistTimeout();
 			persistCameraState(cameraStateRef.current);
 		}
 
@@ -205,7 +225,7 @@ export function PerspectiveScene3D({
 			};
 
 			applyCameraState(nextState);
-			persistCameraState(nextState);
+			schedulePersist(nextState);
 		}
 
 		element.addEventListener("pointerdown", handlePointerDown);
@@ -214,6 +234,7 @@ export function PerspectiveScene3D({
 		element.addEventListener("wheel", handleWheel, { passive: false });
 
 		return () => {
+			clearPersistTimeout();
 			element.style.cursor = "";
 			element.removeEventListener("pointerdown", handlePointerDown);
 			ownerDocument.removeEventListener("pointermove", handlePointerMove);

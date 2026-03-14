@@ -89,12 +89,17 @@ export default function Control({
 								<button
 									type="button"
 									className={classNames(
-										"inline-flex h-5 w-5 items-center justify-center rounded bg-transparent text-neutral-500 transition-colors hover:text-neutral-100",
+										"inline-flex h-5 w-5 items-center justify-center rounded text-neutral-500 transition-colors hover:text-neutral-100",
 										{
-											"bg-primary text-white": cameraModeActive,
 											"text-neutral-500": !cameraModeActive,
+											"text-white": cameraModeActive,
 										},
 									)}
+									style={{
+										backgroundColor: cameraModeActive
+											? "var(--color-primary)"
+											: "transparent",
+									}}
 									onClick={() => onCameraModeToggle(id)}
 								>
 									<Video className="h-3.5 w-3.5" />
