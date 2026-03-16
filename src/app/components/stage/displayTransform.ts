@@ -34,6 +34,8 @@ export interface DisplayTransformFrame {
 	heightOffset: number;
 	fixedAspect: boolean;
 	size: number;
+	barHeight: number;
+	barShadowHeight: number;
 }
 
 function getCanvasSize(display: TransformableDisplay) {
@@ -117,6 +119,8 @@ export function getDisplayTransformFrame(
 			heightOffset: 0,
 			fixedAspect: true,
 			size,
+			barHeight: 0,
+			barShadowHeight: 0,
 		};
 	}
 
@@ -124,12 +128,18 @@ export function getDisplayTransformFrame(
 	const mediaSize = getMediaSize(display);
 	const widthProperty = Number(properties.width ?? 0);
 	const heightProperty = Number(properties.height ?? 0);
+	const shadowHeightProperty = Math.max(
+		0,
+		Number(properties.shadowHeight ?? 0),
+	);
+	const isBarSpectrum = display.name === "BarSpectrumDisplay";
 	const editableWidth =
 		widthProperty > 0
 			? widthProperty
 			: Number(mediaSize?.width || canvasSize?.width || 0);
-	const editableHeight =
-		heightProperty > 0
+	const editableHeight = isBarSpectrum
+		? Math.max(1, heightProperty + shadowHeightProperty)
+		: heightProperty > 0
 			? heightProperty
 			: Number(mediaSize?.height || canvasSize?.height || 0);
 	const baseRenderWidth =
@@ -162,6 +172,8 @@ export function getDisplayTransformFrame(
 				? fixedAspect
 				: false,
 		size,
+		barHeight: Math.max(0, heightProperty),
+		barShadowHeight: isBarSpectrum ? shadowHeightProperty : 0,
 	};
 }
 

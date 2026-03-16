@@ -15,6 +15,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getDisplayRenderGroup } from "@/lib/utils/displayRenderGroup";
 import { ignoreEvents } from "@/lib/utils/react";
 import { Download } from "lucide-react";
 import type React from "react";
@@ -59,6 +60,9 @@ export default function Stage() {
 	const elementParentSceneId = useScenes(
 		(state) => state.elementParentSceneId,
 	) as Record<string, string>;
+	const sceneElementsById = useScenes(
+		(state) => state.sceneElementsById,
+	) as Record<string, { displays?: string[] }>;
 	const canvas = useRef<HTMLCanvasElement>(null);
 	const initProps = useRef({ width, height, backgroundColor });
 	const loading = useAudioStore((state) => state.loading);
@@ -76,6 +80,15 @@ export default function Stage() {
 	);
 	const activeDisplayDescriptor = elementById[activeElementId || ""];
 	const transformableDisplaySelected = isTransformable2DDisplay(activeDisplay);
+	const activeSceneHas3DDisplays = useMemo(() => {
+		if (!activeSceneId) {
+			return false;
+		}
+
+		return (sceneElementsById[activeSceneId]?.displays || []).some(
+			(displayId) => getDisplayRenderGroup(elementById[displayId]) === "3d",
+		);
+	}, [activeSceneId, elementById, sceneElementsById]);
 
 	useEffect(() => {
 		const { width, height, backgroundColor } = initProps.current;
@@ -111,10 +124,10 @@ export default function Stage() {
 	}, [cameraModeEnabled, displayTransformModeEnabled]);
 
 	useEffect(() => {
-		if (cameraModeEnabled && !activeSceneId) {
+		if (cameraModeEnabled && (!activeSceneId || !activeSceneHas3DDisplays)) {
 			setCameraModeEnabled(false);
 		}
-	}, [activeSceneId, cameraModeEnabled]);
+	}, [activeSceneHas3DDisplays, activeSceneId, cameraModeEnabled]);
 
 	useEffect(() => {
 		if (displayTransformModeEnabled && !transformableDisplaySelected) {
@@ -190,7 +203,7 @@ export default function Stage() {
 	};
 
 	function handleCameraModeToggle() {
-		if (!activeSceneId) {
+		if (!activeSceneId || !activeSceneHas3DDisplays) {
 			return;
 		}
 
@@ -282,11 +295,13 @@ export default function Stage() {
 								<Button
 									type="button"
 									variant={
-										cameraModeEnabled && !!activeSceneId ? "default" : "outline"
+										cameraModeEnabled && activeSceneHas3DDisplays
+											? "default"
+											: "outline"
 									}
 									size="icon-sm"
 									className="shadow-xl"
-									disabled={!activeSceneId}
+									disabled={!activeSceneHas3DDisplays}
 									onClick={handleCameraModeToggle}
 								>
 									<Video className="size-4" />

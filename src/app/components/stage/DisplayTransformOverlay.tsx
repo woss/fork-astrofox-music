@@ -172,9 +172,22 @@ function buildDragResult(
 				frame.renderHeight + handleY * localDelta.y,
 			);
 			const nextBaseHeight = renderHeight / frame.displayZoom;
-			nextProperties.height = roundValue(
-				Math.max(1, nextBaseHeight - frame.heightOffset),
-			);
+			if (frame.name === "BarSpectrumDisplay") {
+				const currentTotalHeight = Math.max(
+					1,
+					frame.barHeight + frame.barShadowHeight,
+				);
+				const scale = nextBaseHeight / currentTotalHeight;
+				const nextBarHeight = Math.max(1, frame.barHeight * scale);
+				const nextShadowHeight = Math.max(0, frame.barShadowHeight * scale);
+
+				nextProperties.height = roundValue(nextBarHeight);
+				nextProperties.shadowHeight = roundValue(nextShadowHeight);
+			} else {
+				nextProperties.height = roundValue(
+					Math.max(1, nextBaseHeight - frame.heightOffset),
+				);
+			}
 		}
 	}
 
