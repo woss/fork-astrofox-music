@@ -8,7 +8,7 @@ import {
 	CustomBlending,
 	EdgesGeometry,
 	LineBasicMaterial,
-	MeshPhongMaterial,
+	MeshStandardMaterial,
 	OneFactor,
 	ZeroFactor,
 } from "three";
@@ -265,14 +265,9 @@ export function CubesDisplayLayer3D({
 	const premultipliedAlpha = requiresPremultipliedAlpha(sceneBlendMode);
 	const borderOpacity = sceneMask ? 1 : Math.min(1, finalOpacity * 0.95);
 	const surfaceEmissiveColor = React.useMemo(
-		() => new Color(resolvedSurfaceColor).multiplyScalar(sceneMask ? 0 : 0.4),
+		() => new Color(resolvedSurfaceColor).multiplyScalar(sceneMask ? 0 : 0.08),
 		[resolvedSurfaceColor, sceneMask],
 	);
-	const receiverColor = React.useMemo(
-		() => new Color(resolvedBorderColor).lerp(new Color("#000000"), 0.92),
-		[resolvedBorderColor],
-	);
-
 	const boxGeometry = React.useMemo(() => {
 		const geometry = new BoxGeometry(1, 1, 1);
 		geometry.translate(0, 0, 0.5);
@@ -284,13 +279,13 @@ export function CubesDisplayLayer3D({
 	);
 	const surfaceMaterial = React.useMemo(
 		() =>
-			new MeshPhongMaterial({
+			new MeshStandardMaterial({
 				color: new Color(resolvedSurfaceColor),
 				emissive: surfaceEmissiveColor,
 				transparent: true,
 				opacity: finalOpacity,
-				shininess: 24,
-				specular: new Color("#ffffff").multiplyScalar(0.1),
+				roughness: 0.72,
+				metalness: 0.04,
 				premultipliedAlpha,
 				blending,
 				depthTest: true,
@@ -324,31 +319,14 @@ export function CubesDisplayLayer3D({
 			}),
 		[blending, borderOpacity, premultipliedAlpha, resolvedBorderColor],
 	);
-	const receiverMaterial = React.useMemo(
-		() =>
-			new MeshPhongMaterial({
-				color: receiverColor,
-				shininess: 10,
-				specular: new Color("#ffffff").multiplyScalar(0.04),
-			}),
-		[receiverColor],
-	);
-
 	React.useEffect(() => {
 		return () => {
 			boxGeometry.dispose();
 			edgeGeometry.dispose();
 			surfaceMaterial.dispose();
 			edgeMaterial.dispose();
-			receiverMaterial.dispose();
 		};
-	}, [
-		boxGeometry,
-		edgeGeometry,
-		edgeMaterial,
-		receiverMaterial,
-		surfaceMaterial,
-	]);
+	}, [boxGeometry, edgeGeometry, edgeMaterial, surfaceMaterial]);
 
 	const cubes = [];
 	for (let rowIndex = 0; rowIndex < gridRows; rowIndex += 1) {
@@ -377,40 +355,32 @@ export function CubesDisplayLayer3D({
 
 	return (
 		<group>
-			<ambientLight intensity={0.12} />
+			<ambientLight intensity={0.04} />
 			<hemisphereLight
-				intensity={0.24}
-				color={resolvedBorderColor}
-				groundColor={"#050505"}
+				intensity={0.1}
+				color={"#f3f1ff"}
+				groundColor={"#020202"}
 			/>
 			<directionalLight
-				position={[0, 0, maxDepth * 3.2]}
-				intensity={1.35}
-				color={resolvedSurfaceColor}
-			/>
-			<spotLight
-				position={[viewportWidth * 0.52, viewportHeight * 0.92, maxDepth * 2.9]}
-				angle={0.72}
-				penumbra={0.34}
-				intensity={8.2}
-				distance={Math.max(viewportWidth, viewportHeight) * 4}
+				position={[
+					-viewportWidth * 0.42,
+					viewportHeight * 0.68,
+					maxDepth * 2.5,
+				]}
+				intensity={2.2}
+				color={"#ffffff"}
 				castShadow={true}
 				shadow-mapSize-width={2048}
 				shadow-mapSize-height={2048}
-				shadow-bias={-0.00055}
-				shadow-normalBias={0.04}
+				shadow-bias={-0.00035}
+				shadow-normalBias={0.02}
 				shadow-camera-near={1}
-				shadow-camera-far={Math.max(viewportWidth, viewportHeight) * 4}
-			>
-				<object3D
-					attach="target"
-					position={[
-						-viewportWidth * 0.2,
-						-viewportHeight * 0.22,
-						-maxDepth * 0.6,
-					]}
-				/>
-			</spotLight>
+				shadow-camera-far={maxDepth * 5}
+				shadow-camera-left={-viewportWidth * 0.8}
+				shadow-camera-right={viewportWidth * 0.8}
+				shadow-camera-top={viewportHeight * 0.8}
+				shadow-camera-bottom={-viewportHeight * 0.8}
+			/>
 			<mesh
 				position={[0, 0, -maxDepth * 0.38]}
 				receiveShadow={true}
@@ -419,17 +389,7 @@ export function CubesDisplayLayer3D({
 				<planeGeometry
 					args={[viewportWidth + cubeWidth, viewportHeight + cubeHeight]}
 				/>
-				<primitive object={receiverMaterial} attach="material" />
-			</mesh>
-			<mesh
-				position={[0, 0, -maxDepth * 0.38 + 0.1]}
-				receiveShadow={true}
-				renderOrder={order - 0.005}
-			>
-				<planeGeometry
-					args={[viewportWidth + cubeWidth, viewportHeight + cubeHeight]}
-				/>
-				<shadowMaterial transparent={true} opacity={0.48} />
+				<shadowMaterial transparent={true} opacity={0.68} />
 			</mesh>
 			{cubes.map((cube) => (
 				<group key={cube.key} position={cube.position} scale={cube.scale}>
