@@ -3,6 +3,7 @@ import FFTParser from "@/lib/audio/FFTParser";
 import React from "react";
 import {
 	AddEquation,
+	Color,
 	CustomBlending,
 	DoubleSide,
 	FrontSide,
@@ -35,6 +36,33 @@ export function createGeometryNode(shape, key) {
 	}
 }
 
+const POINT_VERTEX_SHADER = `
+uniform float pointSize;
+uniform float sizeAttenuation;
+
+void main() {
+	vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+	float attenuation = mix(1.0, 300.0 / max(1.0, -mvPosition.z), sizeAttenuation);
+	gl_PointSize = pointSize * attenuation;
+	gl_Position = projectionMatrix * mvPosition;
+}
+`;
+
+const POINT_FRAGMENT_SHADER = `
+uniform vec3 diffuse;
+uniform float opacity;
+
+void main() {
+	vec2 centered = gl_PointCoord - vec2(0.5);
+
+	if (dot(centered, centered) > 0.25) {
+		discard;
+	}
+
+	gl_FragColor = vec4(diffuse, opacity);
+}
+`;
+
 export function getMaterialNode(material, props) {
 	switch (material) {
 		case "Basic":
@@ -47,9 +75,38 @@ export function getMaterialNode(material, props) {
 			return <meshPhongMaterial {...props} />;
 		case "Physical":
 			return <meshPhysicalMaterial {...props} />;
+		case "Points": {
+			const {
+				color = "#FFFFFF",
+				opacity = 1,
+				size = 8,
+				sizeAttenuation = false,
+				...materialProps
+			} = props;
+
+			return (
+				<shaderMaterial
+					{...materialProps}
+					vertexShader={POINT_VERTEX_SHADER}
+					fragmentShader={POINT_FRAGMENT_SHADER}
+					uniforms={{
+						diffuse: {
+							value: color instanceof Color ? color : new Color(color),
+						},
+						opacity: { value: Number(opacity ?? 1) },
+						pointSize: { value: Number(size ?? 8) },
+						sizeAttenuation: { value: sizeAttenuation ? 1 : 0 },
+					}}
+				/>
+			);
+		}
 		default:
 			return <meshStandardMaterial {...props} />;
 	}
+}
+
+export function isPointsMaterial(material) {
+	return material === "Points";
 }
 
 export function GeometryDisplayLayer({
@@ -108,6 +165,43 @@ export function GeometryDisplayLayer({
 	const edgeOpacity = sceneMask
 		? Number(sceneInverse ? 1 : 0)
 		: 0.9 * Number(sceneOpacity ?? 1);
+	const GeometryPrimitive = isPointsMaterial(material) ? "points" : "mesh";
+	const geometryMaterialProps = isPointsMaterial(material)
+		? {
+				color: geometryColor,
+				opacity: finalOpacity,
+				transparent: true,
+				depthTest: false,
+				depthWrite: false,
+				premultipliedAlpha: requiresPremultipliedAlpha(sceneBlendMode),
+				blending,
+				blendEquation: sceneMask ? AddEquation : undefined,
+				blendSrc: sceneMask ? ZeroFactor : undefined,
+				blendDst: sceneMask ? OneFactor : undefined,
+				blendEquationAlpha: sceneMask ? AddEquation : undefined,
+				blendSrcAlpha: sceneMask ? OneFactor : undefined,
+				blendDstAlpha: sceneMask ? ZeroFactor : undefined,
+				size: 8,
+				sizeAttenuation: false,
+			}
+		: {
+				flatShading: shading === "Flat",
+				color: geometryColor,
+				opacity: finalOpacity,
+				wireframe,
+				transparent: true,
+				side: material === "Basic" ? FrontSide : DoubleSide,
+				depthTest: false,
+				depthWrite: false,
+				premultipliedAlpha: requiresPremultipliedAlpha(sceneBlendMode),
+				blending,
+				blendEquation: sceneMask ? AddEquation : undefined,
+				blendSrc: sceneMask ? ZeroFactor : undefined,
+				blendDst: sceneMask ? OneFactor : undefined,
+				blendEquationAlpha: sceneMask ? AddEquation : undefined,
+				blendSrcAlpha: sceneMask ? OneFactor : undefined,
+				blendDstAlpha: sceneMask ? ZeroFactor : undefined,
+			};
 
 	return (
 		<group>
@@ -130,32 +224,15 @@ export function GeometryDisplayLayer({
 				decay={0}
 				position={[-lightDistance, -lightDistance, -lightDistance]}
 			/>
-			<mesh
+			<GeometryPrimitive
 				key="mesh"
 				position={meshPosition}
 				rotation={meshRotation}
 				renderOrder={order}
 			>
 				{createGeometryNode(shape, "geometry")}
-				{getMaterialNode(material, {
-					flatShading: shading === "Flat",
-					color: geometryColor,
-					opacity: finalOpacity,
-					wireframe,
-					transparent: true,
-					side: material === "Basic" ? FrontSide : DoubleSide,
-					depthTest: false,
-					depthWrite: false,
-					premultipliedAlpha: requiresPremultipliedAlpha(sceneBlendMode),
-					blending,
-					blendEquation: sceneMask ? AddEquation : undefined,
-					blendSrc: sceneMask ? ZeroFactor : undefined,
-					blendDst: sceneMask ? OneFactor : undefined,
-					blendEquationAlpha: sceneMask ? AddEquation : undefined,
-					blendSrcAlpha: sceneMask ? OneFactor : undefined,
-					blendDstAlpha: sceneMask ? ZeroFactor : undefined,
-				})}
-			</mesh>
+				{getMaterialNode(material, geometryMaterialProps)}
+			</GeometryPrimitive>
 			{edges && (
 				<mesh
 					key="edge-overlay"

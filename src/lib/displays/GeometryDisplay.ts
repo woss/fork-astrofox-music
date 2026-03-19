@@ -18,6 +18,7 @@ const materialOptions = [
 	"Normal",
 	"Phong",
 	"Physical",
+	"Points",
 	"Standard",
 ];
 
