@@ -3,7 +3,7 @@ import SectionAddMenu from "./SectionAddMenu";
 const DISPLAY_3D_CATEGORIES = [
 	{
 		label: "3D",
-		items: ["Geometry", "Tunnel", "Cubes"],
+		items: ["Geometry", "Tunnel", "Cubes", "Point Waves"],
 	},
 ];
 

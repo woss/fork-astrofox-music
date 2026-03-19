@@ -2,6 +2,7 @@ export { default as BarSpectrumDisplay } from "./BarSpectrumDisplay";
 export { default as CubesDisplay } from "./CubesDisplay";
 export { default as GeometryDisplay } from "./GeometryDisplay";
 export { default as ImageDisplay } from "./ImageDisplay";
+export { default as PointWavesDisplay } from "./PointWavesDisplay";
 export { default as ShapeDisplay } from "./ShapeDisplay";
 export { default as SoundWaveDisplay } from "./SoundWaveDisplay";
 export { default as TextDisplay } from "./TextDisplay";

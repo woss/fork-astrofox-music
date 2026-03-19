@@ -5,5 +5,6 @@ export {
 	getMaterialNode,
 } from "./GeometryDisplayLayer";
 export { GeometryDisplayLayer3D } from "./GeometryDisplayLayer3D";
+export { PointWavesDisplayLayer3D } from "./PointWavesDisplayLayer3D";
 export { PerspectiveScene3D } from "./PerspectiveScene3D";
 export { TunnelDisplayLayer3D } from "./TunnelDisplayLayer3D";

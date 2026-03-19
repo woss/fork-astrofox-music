@@ -1,6 +1,7 @@
 const THREE_D_DISPLAY_NAMES = new Set([
 	"CubesDisplay",
 	"GeometryDisplay",
+	"PointWavesDisplay",
 	"TunnelDisplay",
 ]);
 

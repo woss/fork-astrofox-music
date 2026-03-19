@@ -9,6 +9,7 @@ import {
 	CubesDisplayLayer3D,
 	GeometryDisplayLayer3D,
 	PerspectiveScene3D,
+	PointWavesDisplayLayer3D,
 	TunnelDisplayLayer3D,
 } from "./geometry";
 import {
@@ -194,6 +195,18 @@ export default function HybridStageRoot({
 							order={order}
 							width={width}
 							height={height}
+							frameData={frameData}
+							{...NEUTRAL_SCENE_PROPS}
+						/>,
+					);
+					break;
+				case "PointWavesDisplay":
+					if (scene3D.length === 0) scene3DOrder = order;
+					scene3D.push(
+						<PointWavesDisplayLayer3D
+							key={display.id}
+							display={display}
+							order={order}
 							frameData={frameData}
 							{...NEUTRAL_SCENE_PROPS}
 						/>,
