@@ -3,7 +3,6 @@ import FFTParser from "@/lib/audio/FFTParser";
 import React from "react";
 import {
 	AddEquation,
-	Color,
 	CustomBlending,
 	DoubleSide,
 	FrontSide,
@@ -36,32 +35,24 @@ export function createGeometryNode(shape, key) {
 	}
 }
 
-const POINT_VERTEX_SHADER = `
-uniform float pointSize;
-uniform float sizeAttenuation;
+function PointMaterialNode(props) {
+	const handleBeforeCompile = React.useCallback((shader) => {
+		shader.fragmentShader = shader.fragmentShader.replace(
+			"void main() {",
+			`void main() {
+	vec2 centeredPointCoord = gl_PointCoord - vec2(0.5);
+	if (dot(centeredPointCoord, centeredPointCoord) > 0.25) discard;`,
+		);
+	}, []);
 
-void main() {
-	vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-	float attenuation = mix(1.0, 300.0 / max(1.0, -mvPosition.z), sizeAttenuation);
-	gl_PointSize = pointSize * attenuation;
-	gl_Position = projectionMatrix * mvPosition;
+	return (
+		<pointsMaterial
+			{...props}
+			alphaTest={0.5}
+			onBeforeCompile={handleBeforeCompile}
+		/>
+	);
 }
-`;
-
-const POINT_FRAGMENT_SHADER = `
-uniform vec3 diffuse;
-uniform float opacity;
-
-void main() {
-	vec2 centered = gl_PointCoord - vec2(0.5);
-
-	if (dot(centered, centered) > 0.25) {
-		discard;
-	}
-
-	gl_FragColor = vec4(diffuse, opacity);
-}
-`;
 
 export function getMaterialNode(material, props) {
 	switch (material) {
@@ -75,31 +66,8 @@ export function getMaterialNode(material, props) {
 			return <meshPhongMaterial {...props} />;
 		case "Physical":
 			return <meshPhysicalMaterial {...props} />;
-		case "Points": {
-			const {
-				color = "#FFFFFF",
-				opacity = 1,
-				size = 8,
-				sizeAttenuation = false,
-				...materialProps
-			} = props;
-
-			return (
-				<shaderMaterial
-					{...materialProps}
-					vertexShader={POINT_VERTEX_SHADER}
-					fragmentShader={POINT_FRAGMENT_SHADER}
-					uniforms={{
-						diffuse: {
-							value: color instanceof Color ? color : new Color(color),
-						},
-						opacity: { value: Number(opacity ?? 1) },
-						pointSize: { value: Number(size ?? 8) },
-						sizeAttenuation: { value: sizeAttenuation ? 1 : 0 },
-					}}
-				/>
-			);
-		}
+		case "Points":
+			return <PointMaterialNode {...props} />;
 		default:
 			return <meshStandardMaterial {...props} />;
 	}
@@ -130,6 +98,7 @@ export function GeometryDisplayLayer({
 		x = 0,
 		y = 0,
 		z = 0,
+		pointSize = 8,
 		opacity = 1,
 		lightIntensity = 1,
 		lightDistance = 500,
@@ -181,7 +150,7 @@ export function GeometryDisplayLayer({
 				blendEquationAlpha: sceneMask ? AddEquation : undefined,
 				blendSrcAlpha: sceneMask ? OneFactor : undefined,
 				blendDstAlpha: sceneMask ? ZeroFactor : undefined,
-				size: 8,
+				size: Math.max(0.5, Number(pointSize) || 0.5),
 				sizeAttenuation: false,
 			}
 		: {

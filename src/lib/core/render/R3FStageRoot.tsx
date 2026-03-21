@@ -8,8 +8,8 @@ import { SceneComposite, SceneWithEffects } from "./effects";
 import {
 	CubesDisplayLayer3D,
 	GeometryDisplayLayer3D,
+	MeshGridDisplayLayer3D,
 	PerspectiveScene3D,
-	PointWavesDisplayLayer3D,
 	TunnelDisplayLayer3D,
 } from "./geometry";
 import {
@@ -198,10 +198,10 @@ export default function R3FStageRoot({
 						/>,
 					);
 					break;
-				case "PointWavesDisplay":
+				case "MeshGridDisplay":
 					if (scene3D.length === 0) scene3DOrder = order;
 					scene3D.push(
-						<PointWavesDisplayLayer3D
+						<MeshGridDisplayLayer3D
 							key={display.id}
 							display={display}
 							order={order}

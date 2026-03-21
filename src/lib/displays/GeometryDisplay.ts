@@ -40,6 +40,7 @@ export default class GeometryDisplay extends Display {
 			wireframe: false,
 			edges: false,
 			edgeColor: "#FFFFFF",
+			pointSize: 8,
 			x: 0,
 			y: 0,
 			z: 0,
@@ -82,6 +83,17 @@ export default class GeometryDisplay extends Display {
 			edgeColor: {
 				label: "Edge Color",
 				type: "color",
+			},
+			pointSize: {
+				label: "Point Size",
+				type: "number",
+				min: 0.5,
+				max: 24,
+				step: 0.1,
+				withRange: true,
+				withReactor: true,
+				hidden: (display: { properties: Record<string, unknown> }) =>
+					display.properties.material !== "Points",
 			},
 			x: {
 				label: "X",

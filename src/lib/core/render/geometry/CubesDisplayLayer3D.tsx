@@ -270,7 +270,7 @@ export function CubesDisplayLayer3D({
 	);
 	const boxGeometry = React.useMemo(() => {
 		const geometry = new BoxGeometry(1, 1, 1);
-		geometry.translate(0, 0, 0.5);
+		geometry.translate(0, 0.5, 0);
 		return geometry;
 	}, []);
 	const edgeGeometry = React.useMemo(
@@ -342,13 +342,13 @@ export function CubesDisplayLayer3D({
 			);
 			const shapedValue = clamp(value, 0, 1) ** 0.8;
 			const x = -viewportWidth / 2 + cellWidth * (columnIndex + 0.5);
-			const y = viewportHeight / 2 - cellHeight * (rowIndex + 0.5);
+			const z = -viewportHeight / 2 + cellHeight * (rowIndex + 0.5);
 			const depth = baseDepth + shapedValue * extrusionHeight * maxDepth;
 
 			cubes.push({
 				key: `${rowIndex}-${columnIndex}`,
-				position: [x, y, 0],
-				scale: [cubeWidth, cubeHeight, depth],
+				position: [x, 0, z],
+				scale: [cubeWidth, depth, cubeHeight],
 			});
 		}
 	}
@@ -364,8 +364,8 @@ export function CubesDisplayLayer3D({
 			<directionalLight
 				position={[
 					-viewportWidth * 0.42,
-					viewportHeight * 0.68,
-					maxDepth * 2.5,
+					maxDepth * 2.6,
+					viewportHeight * 0.58,
 				]}
 				intensity={2.2}
 				color={"#ffffff"}
@@ -382,7 +382,8 @@ export function CubesDisplayLayer3D({
 				shadow-camera-bottom={-viewportHeight * 0.8}
 			/>
 			<mesh
-				position={[0, 0, -maxDepth * 0.38]}
+				position={[0, -maxDepth * 0.02, 0]}
+				rotation={[-Math.PI / 2, 0, 0]}
 				receiveShadow={true}
 				renderOrder={order - 0.01}
 			>

@@ -40,6 +40,7 @@ export function GeometryDisplayLayer3D({
 		x = 0,
 		y = 0,
 		z = 0,
+		pointSize = 8,
 		opacity = 1,
 		lightIntensity = 1,
 		lightDistance = 500,
@@ -91,7 +92,7 @@ export function GeometryDisplayLayer3D({
 				blendEquationAlpha: sceneMask ? AddEquation : undefined,
 				blendSrcAlpha: sceneMask ? OneFactor : undefined,
 				blendDstAlpha: sceneMask ? ZeroFactor : undefined,
-				size: 8,
+				size: Math.max(0.5, Number(pointSize) || 0.5),
 				sizeAttenuation: true,
 			}
 		: {

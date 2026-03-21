@@ -62,8 +62,8 @@ export default class Scene extends Display {
 			inverse: false,
 			stencil: false,
 			cameraDistance: 0,
-			cameraAzimuth: 0,
-			cameraPolar: 0,
+			cameraAzimuth: (45 * Math.PI) / 180,
+			cameraPolar: (30 * Math.PI) / 180,
 		},
 		controls: {
 			blendMode: {

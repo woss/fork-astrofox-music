@@ -1,0 +1,204 @@
+import Display from "@/lib/core/Display";
+
+const materialOptions = [
+	"Basic",
+	"Lambert",
+	"Normal",
+	"Phong",
+	"Physical",
+	"Points",
+	"Standard",
+];
+
+const shadingOptions = ["Smooth", "Flat"];
+
+const motionOptions = ["Wave", "Ripple", "Pulse", "Twist", "Noise"];
+
+export default class MeshGridDisplay extends Display {
+	static config = {
+		name: "MeshGridDisplay",
+		description: "Displays an animated 3D mesh grid surface.",
+		type: "display",
+		label: "Mesh Grid",
+		defaultProperties: {
+			material: "Points",
+			shading: "Smooth",
+			motion: "Wave",
+			color: "#FFFFFF",
+			wireframe: false,
+			edges: false,
+			edgeColor: "#FFFFFF",
+			x: 0,
+			y: 0,
+			z: 0,
+			columns: 42,
+			rows: 32,
+			separation: 32,
+			height: 28,
+			pointSize: 4,
+			speed: 1,
+			frequencyX: 0.3,
+			frequencyY: 0.5,
+			opacity: 1,
+			lightIntensity: 1,
+			lightDistance: 500,
+		},
+		controls: {
+			material: {
+				label: "Material",
+				type: "select",
+				items: materialOptions,
+			},
+			shading: {
+				label: "Shading",
+				type: "select",
+				items: shadingOptions,
+			},
+			motion: {
+				label: "Motion",
+				type: "select",
+				items: motionOptions,
+			},
+			color: {
+				label: "Color",
+				type: "color",
+			},
+			wireframe: {
+				label: "Wireframe",
+				type: "toggle",
+			},
+			edges: {
+				label: "Edges",
+				type: "toggle",
+			},
+			edgeColor: {
+				label: "Edge Color",
+				type: "color",
+			},
+			x: {
+				label: "X",
+				type: "number",
+				min: -500,
+				max: 500,
+				withRange: true,
+				hideFill: true,
+			},
+			y: {
+				label: "Y",
+				type: "number",
+				min: -500,
+				max: 500,
+				withRange: true,
+				hideFill: true,
+			},
+			z: {
+				label: "Z",
+				type: "number",
+				min: -500,
+				max: 500,
+				withRange: true,
+				hideFill: true,
+			},
+			columns: {
+				label: "Columns",
+				type: "number",
+				min: 4,
+				max: 96,
+				step: 1,
+				withRange: true,
+			},
+			rows: {
+				label: "Rows",
+				type: "number",
+				min: 4,
+				max: 96,
+				step: 1,
+				withRange: true,
+			},
+			separation: {
+				label: "Separation",
+				type: "number",
+				min: 8,
+				max: 120,
+				step: 1,
+				withRange: true,
+			},
+			height: {
+				label: "Height",
+				type: "number",
+				min: 0,
+				max: 120,
+				step: 1,
+				withRange: true,
+				withReactor: true,
+			},
+			pointSize: {
+				label: "Point Size",
+				type: "number",
+				min: 0.5,
+				max: 24,
+				step: 0.1,
+				withRange: true,
+				withReactor: true,
+				hidden: (display: { properties: Record<string, unknown> }) =>
+					display.properties.material !== "Points",
+			},
+			speed: {
+				label: "Speed",
+				type: "number",
+				min: 0,
+				max: 6,
+				step: 0.01,
+				withRange: true,
+				withReactor: true,
+			},
+			frequencyX: {
+				label: "Freq X",
+				type: "number",
+				min: 0.05,
+				max: 2,
+				step: 0.01,
+				withRange: true,
+				withReactor: true,
+			},
+			frequencyY: {
+				label: "Freq Y",
+				type: "number",
+				min: 0.05,
+				max: 2,
+				step: 0.01,
+				withRange: true,
+				withReactor: true,
+			},
+			opacity: {
+				label: "Opacity",
+				type: "number",
+				min: 0,
+				max: 1,
+				step: 0.01,
+				withRange: true,
+				withReactor: true,
+			},
+			lightIntensity: {
+				label: "Light Intensity",
+				type: "number",
+				min: 0,
+				max: 4,
+				step: 0.01,
+				withRange: true,
+			},
+			lightDistance: {
+				label: "Light Distance",
+				type: "number",
+				min: 50,
+				max: 2000,
+				step: 1,
+				withRange: true,
+			},
+		},
+	};
+
+	constructor(properties?: Record<string, unknown>) {
+		super(MeshGridDisplay, properties);
+	}
+}
