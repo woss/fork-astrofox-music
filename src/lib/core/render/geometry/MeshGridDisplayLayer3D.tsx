@@ -183,8 +183,6 @@ export function MeshGridDisplayLayer3D({
 		frequencyX = 0.3,
 		frequencyY = 0.5,
 		opacity = 1,
-		lightIntensity = 1,
-		lightDistance = 500,
 	} = properties;
 
 	const gridColumns = Math.max(4, Math.round(Number(columns) || 4));
@@ -293,33 +291,6 @@ export function MeshGridDisplayLayer3D({
 
 	return (
 		<group>
-			<ambientLight intensity={0.3 * Number(lightIntensity || 0)} />
-			<pointLight
-				key="light-0"
-				intensity={Number(lightIntensity) || 0}
-				decay={0}
-				position={[0, Number(lightDistance) || 0, 0]}
-			/>
-			<pointLight
-				key="light-1"
-				intensity={Number(lightIntensity) || 0}
-				decay={0}
-				position={[
-					Number(lightDistance) || 0,
-					Number(lightDistance) || 0,
-					Number(lightDistance) || 0,
-				]}
-			/>
-			<pointLight
-				key="light-2"
-				intensity={(Number(lightIntensity) || 0) * 0.5}
-				decay={0}
-				position={[
-					-(Number(lightDistance) || 0),
-					-(Number(lightDistance) || 0),
-					-(Number(lightDistance) || 0),
-				]}
-			/>
 			<GeometryPrimitive
 				key="mesh-grid"
 				geometry={geometryData.geometry}

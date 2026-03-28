@@ -355,32 +355,6 @@ export function CubesDisplayLayer3D({
 
 	return (
 		<group>
-			<ambientLight intensity={0.04} />
-			<hemisphereLight
-				intensity={0.1}
-				color={"#f3f1ff"}
-				groundColor={"#020202"}
-			/>
-			<directionalLight
-				position={[
-					-viewportWidth * 0.42,
-					maxDepth * 2.6,
-					viewportHeight * 0.58,
-				]}
-				intensity={2.2}
-				color={"#ffffff"}
-				castShadow={true}
-				shadow-mapSize-width={2048}
-				shadow-mapSize-height={2048}
-				shadow-bias={-0.00035}
-				shadow-normalBias={0.02}
-				shadow-camera-near={1}
-				shadow-camera-far={maxDepth * 5}
-				shadow-camera-left={-viewportWidth * 0.8}
-				shadow-camera-right={viewportWidth * 0.8}
-				shadow-camera-top={viewportHeight * 0.8}
-				shadow-camera-bottom={-viewportHeight * 0.8}
-			/>
 			<mesh
 				position={[0, -maxDepth * 0.02, 0]}
 				rotation={[-Math.PI / 2, 0, 0]}

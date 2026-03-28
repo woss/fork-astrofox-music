@@ -40,8 +40,6 @@ export default class MeshGridDisplay extends Display {
 			frequencyX: 0.3,
 			frequencyY: 0.5,
 			opacity: 1,
-			lightIntensity: 1,
-			lightDistance: 500,
 		},
 		controls: {
 			material: {
@@ -178,22 +176,6 @@ export default class MeshGridDisplay extends Display {
 				step: 0.01,
 				withRange: true,
 				withReactor: true,
-			},
-			lightIntensity: {
-				label: "Light Intensity",
-				type: "number",
-				min: 0,
-				max: 4,
-				step: 0.01,
-				withRange: true,
-			},
-			lightDistance: {
-				label: "Light Distance",
-				type: "number",
-				min: 50,
-				max: 2000,
-				step: 1,
-				withRange: true,
 			},
 		},
 	};

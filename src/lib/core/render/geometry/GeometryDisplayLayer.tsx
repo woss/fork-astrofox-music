@@ -100,8 +100,6 @@ export function GeometryDisplayLayer({
 		z = 0,
 		pointSize = 8,
 		opacity = 1,
-		lightIntensity = 1,
-		lightDistance = 500,
 	} = properties;
 
 	const parserRef = React.useRef(new FFTParser(properties));
@@ -174,25 +172,6 @@ export function GeometryDisplayLayer({
 
 	return (
 		<group>
-			<ambientLight intensity={0.3 * lightIntensity} />
-			<pointLight
-				key="light-0"
-				intensity={lightIntensity}
-				decay={0}
-				position={[0, lightDistance, 0]}
-			/>
-			<pointLight
-				key="light-1"
-				intensity={lightIntensity}
-				decay={0}
-				position={[lightDistance, lightDistance, lightDistance]}
-			/>
-			<pointLight
-				key="light-2"
-				intensity={lightIntensity * 0.5}
-				decay={0}
-				position={[-lightDistance, -lightDistance, -lightDistance]}
-			/>
 			<GeometryPrimitive
 				key="mesh"
 				position={meshPosition}

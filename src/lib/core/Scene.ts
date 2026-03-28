@@ -35,6 +35,8 @@ const blendOptions = [
 	"Reflect",
 ];
 
+const lightingPresetOptions = ["Studio", "Stage", "Grid", "Flat"];
+
 interface SceneElement {
 	id: string;
 	scene: unknown;
@@ -64,6 +66,17 @@ export default class Scene extends Display {
 			cameraDistance: 0,
 			cameraAzimuth: (45 * Math.PI) / 180,
 			cameraPolar: (30 * Math.PI) / 180,
+			lightingPreset: "Studio",
+			ambientLightIntensity: 0.08,
+			skyLightIntensity: 0.12,
+			keyLightIntensity: 2.2,
+			fillLightIntensity: 0.75,
+			rimLightIntensity: 0.35,
+			lightDistance: 700,
+			lightColor: "#FFFFFF",
+			skyColor: "#F3F1FF",
+			groundColor: "#020202",
+			shadows: true,
 		},
 		controls: {
 			blendMode: {
@@ -89,6 +102,75 @@ export default class Scene extends Display {
 				type: "toggle",
 				hidden: (display: { properties: Record<string, unknown> }) =>
 					!display.properties.mask,
+			},
+			lightingPreset: {
+				label: "Lighting",
+				type: "select",
+				items: lightingPresetOptions,
+			},
+			ambientLightIntensity: {
+				label: "Ambient",
+				type: "number",
+				min: 0,
+				max: 1,
+				step: 0.01,
+				withRange: true,
+			},
+			skyLightIntensity: {
+				label: "Sky",
+				type: "number",
+				min: 0,
+				max: 1.5,
+				step: 0.01,
+				withRange: true,
+			},
+			keyLightIntensity: {
+				label: "Key",
+				type: "number",
+				min: 0,
+				max: 4,
+				step: 0.01,
+				withRange: true,
+			},
+			fillLightIntensity: {
+				label: "Fill",
+				type: "number",
+				min: 0,
+				max: 4,
+				step: 0.01,
+				withRange: true,
+			},
+			rimLightIntensity: {
+				label: "Rim",
+				type: "number",
+				min: 0,
+				max: 4,
+				step: 0.01,
+				withRange: true,
+			},
+			lightDistance: {
+				label: "Distance",
+				type: "number",
+				min: 50,
+				max: 2500,
+				step: 1,
+				withRange: true,
+			},
+			lightColor: {
+				label: "Light Color",
+				type: "color",
+			},
+			skyColor: {
+				label: "Sky Color",
+				type: "color",
+			},
+			groundColor: {
+				label: "Ground Color",
+				type: "color",
+			},
+			shadows: {
+				label: "Shadows",
+				type: "toggle",
 			},
 		},
 	};

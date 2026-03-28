@@ -17,6 +17,7 @@ import {
 } from "three";
 import ShaderPass from "../composer/ShaderPass";
 import DepthOfFieldShader from "../effects/shaders/DepthOfFieldShader";
+import { SceneLights3D } from "./SceneLights3D";
 
 const PERSPECTIVE_FOV = 50;
 const CAMERA_PERSIST_DELAY_MS = 120;
@@ -401,6 +402,11 @@ export function PerspectiveScene3D({
 		<>
 			{createPortal(
 				<>
+					<SceneLights3D
+						sceneProperties={sceneProperties}
+						width={width}
+						height={height}
+					/>
 					{children}
 					{cameraModeActive ? <primitive object={cameraAxisHelper} /> : null}
 				</>,
