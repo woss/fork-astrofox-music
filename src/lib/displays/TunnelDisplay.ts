@@ -22,6 +22,7 @@ export default class TunnelDisplay extends Display {
 			gridRows: 48,
 			lineWidth: 0.05,
 			transparentSurface: false,
+			shader: false,
 			radialSegments: 40,
 			lengthSegments: 128,
 		},
@@ -36,6 +37,10 @@ export default class TunnelDisplay extends Display {
 			},
 			transparentSurface: {
 				label: "Transparent",
+				type: "toggle",
+			},
+			shader: {
+				label: "Shader",
 				type: "toggle",
 			},
 			radius: {

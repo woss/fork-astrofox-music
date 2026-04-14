@@ -5,6 +5,7 @@ import React from "react";
 import {
 	AddEquation,
 	BackSide,
+	BufferAttribute,
 	CatmullRomCurve3,
 	Color,
 	CustomBlending,
@@ -88,6 +89,7 @@ const _normal = new Vector3();
 const _rotationAxis = new Vector3();
 const _cameraWorldPosition = new Vector3();
 const _cameraLookMatrix = new Matrix4();
+const _fogColor = new Color();
 const DEFAULT_CAMERA_AZIMUTH = (45 * Math.PI) / 180;
 const DEFAULT_CAMERA_POLAR = (30 * Math.PI) / 180;
 
@@ -262,6 +264,41 @@ function updateTubeVertices(
 	geometry.computeBoundingSphere();
 }
 
+function updateTubeFogColors(
+	geometry,
+	tubularSegments: number,
+	radialSegments: number,
+	lineColor: Color,
+	backgroundColor: Color,
+	fogDistanceNormalized: number,
+) {
+	const posAttr = geometry.getAttribute("position");
+	let colorAttr = geometry.getAttribute("color");
+
+	if (!colorAttr || colorAttr.count !== posAttr.count) {
+		colorAttr = new BufferAttribute(new Float32Array(posAttr.count * 3), 3);
+		geometry.setAttribute("color", colorAttr);
+	}
+
+	let idx = 0;
+	for (let i = 0; i <= tubularSegments; i++) {
+		const progress = tubularSegments > 0 ? i / tubularSegments : 0;
+		const fog =
+			fogDistanceNormalized > 0
+				? clamp(progress / fogDistanceNormalized, 0, 1) ** 2 *
+					(3 - 2 * clamp(progress / fogDistanceNormalized, 0, 1))
+				: 1;
+		_fogColor.copy(lineColor).lerp(backgroundColor, fog);
+
+		for (let j = 0; j <= radialSegments; j++) {
+			colorAttr.setXYZ(idx, _fogColor.r, _fogColor.g, _fogColor.b);
+			idx++;
+		}
+	}
+
+	colorAttr.needsUpdate = true;
+}
+
 export function TunnelDisplayLayer3D({
 	display,
 	order,
@@ -291,22 +328,31 @@ export function TunnelDisplayLayer3D({
 		gridRows = 48,
 		lineWidth = 0.05,
 		transparentSurface = false,
+		shader = false,
 		radialSegments = 40,
 		lengthSegments = 128,
 	} = properties;
 
 	const timeRef = React.useRef(0);
-	const materialRef = React.useRef(null);
-	const meshRef = React.useRef(null);
+	const shaderMaterialRef = React.useRef(null);
+	const surfaceMeshRef = React.useRef(null);
+	const lineMeshRef = React.useRef(null);
 	const groupRef = React.useRef(null);
-	const geometryRef = React.useRef(null);
-	const curvePointsRef = React.useRef([]);
-	const frameTangentsRef = React.useRef([]);
-	const frameNormalsRef = React.useRef([]);
-	const frameBinormalsRef = React.useRef([]);
-	const initialFrameNormalRef = React.useRef(new Vector3(0, 1, 0));
+	const surfaceGeometryRef = React.useRef(null);
+	const lineGeometryRef = React.useRef(null);
+	const surfaceCurvePointsRef = React.useRef([]);
+	const lineCurvePointsRef = React.useRef([]);
+	const surfaceFrameTangentsRef = React.useRef([]);
+	const surfaceFrameNormalsRef = React.useRef([]);
+	const surfaceFrameBinormalsRef = React.useRef([]);
+	const surfaceInitialFrameNormalRef = React.useRef(new Vector3(0, 1, 0));
+	const lineFrameTangentsRef = React.useRef([]);
+	const lineFrameNormalsRef = React.useRef([]);
+	const lineFrameBinormalsRef = React.useRef([]);
+	const lineInitialFrameNormalRef = React.useRef(new Vector3(0, 1, 0));
 	const fallbackGroupQuaternionRef = React.useRef(new Quaternion());
-	const structuralKeyRef = React.useRef("");
+	const surfaceStructuralKeyRef = React.useRef("");
+	const lineStructuralKeyRef = React.useRef("");
 	const deltaSeconds = Math.max(0, Number(frameData?.delta ?? 16.667)) / 1000;
 
 	if (frameData?.hasUpdate) {
@@ -317,9 +363,14 @@ export function TunnelDisplayLayer3D({
 	const tunnelDepth = Math.max(600, Number(depth) || 0);
 	const curveBend = Math.max(0, Number(curvature) || 0);
 	const curveTurns = Math.max(0.1, Number(turnRate) || 0);
+	const lineColumns = Math.max(6, Math.round(Number(gridColumns) || 0));
+	const lineRows = Math.max(6, Math.round(Number(gridRows) || 0));
 	const radialDetail = Math.max(8, Math.round(Number(radialSegments) || 0));
 	const lengthDetail = Math.max(16, Math.round(Number(lengthSegments) || 0));
-	const pathSamples = Math.max(24, Math.round(lengthDetail / 2));
+	const pathSamples = Math.max(
+		24,
+		Math.round(Math.max(lengthDetail, lineRows) / 2),
+	);
 	const leadDistance = Math.min(240, tunnelDepth * 0.06 + 100);
 	const trailDistance = Math.min(760, tunnelDepth * 0.24 + 360);
 	const curveTime = timeRef.current * Number(turnSpeed || 0);
@@ -354,10 +405,28 @@ export function TunnelDisplayLayer3D({
 		0,
 		1,
 	);
+	const shaderEnabled = Boolean(shader);
+	const resolvedLineColor = sceneMask ? "#000000" : color;
+	const resolvedBackgroundColor = sceneMask ? "#000000" : backgroundColor;
+	const lineColorValue = React.useMemo(
+		() => new Color(resolvedLineColor),
+		[resolvedLineColor],
+	);
+	const backgroundColorValue = React.useMemo(
+		() => new Color(resolvedBackgroundColor),
+		[resolvedBackgroundColor],
+	);
 	const blending = sceneMask
 		? CustomBlending
 		: getThreeBlending(sceneBlendMode);
 	const rollRadians = ((Number(bank) || 0) * Math.PI) / 180;
+	const visiblePathDistance = tunnelDepth + leadDistance + trailDistance;
+	const lineRowSpacing = visiblePathDistance / Math.max(1, lineRows);
+	const normalizedTravelPhase =
+		(((timeRef.current * Number(travelSpeed || 0) * 1.2) % 1) + 1) % 1;
+	const lineDistanceOffset = shaderEnabled
+		? 0
+		: -normalizedTravelPhase * lineRowSpacing;
 	_cameraWorldPosition.set(
 		groupPosition[0],
 		groupPosition[1],
@@ -369,7 +438,7 @@ export function TunnelDisplayLayer3D({
 		_up.set(0, 1, 0),
 	);
 	fallbackGroupQuaternionRef.current.setFromRotationMatrix(_cameraLookMatrix);
-	const uniforms = React.useMemo(
+	const shaderUniforms = React.useMemo(
 		() => ({
 			uTime: { value: 0 },
 			uTravelSpeed: { value: 0 },
@@ -385,28 +454,18 @@ export function TunnelDisplayLayer3D({
 		[],
 	);
 
-	uniforms.uTime.value = timeRef.current;
-	uniforms.uTravelSpeed.value = Number(travelSpeed || 0) * 1.2;
-	uniforms.uColumns.value = Math.max(1, Number(gridColumns) || 1);
-	uniforms.uRows.value = Math.max(1, Number(gridRows) || 1);
-	uniforms.uLineWidth.value = clamp(Number(lineWidth) || 0, 0.005, 0.3);
-	uniforms.uOpacity.value = finalOpacity;
-	uniforms.uTransparentSurface.value = transparentSurface ? 1 : 0;
-	uniforms.uFogDistance.value = clamp(
-		Number(fogDistance ?? tunnelDepth) / Math.max(1, tunnelDepth),
-		0,
-		1,
-	);
-	uniforms.uLineColor.value.set(sceneMask ? "#000000" : color);
-	uniforms.uBackgroundColor.value.set(sceneMask ? "#000000" : backgroundColor);
-
 	// Ensure we have enough pre-allocated Vector3s for curve points
 	const numPoints = pathSamples + 1;
-	const points = curvePointsRef.current;
-	while (points.length < numPoints) {
-		points.push(new Vector3());
+	const surfacePoints = surfaceCurvePointsRef.current;
+	while (surfacePoints.length < numPoints) {
+		surfacePoints.push(new Vector3());
 	}
-	points.length = numPoints;
+	surfacePoints.length = numPoints;
+	const linePoints = lineCurvePointsRef.current;
+	while (linePoints.length < numPoints) {
+		linePoints.push(new Vector3());
+	}
+	linePoints.length = numPoints;
 
 	// Compute curve points in-place (reusing pre-allocated Vector3s)
 	const sampleStep = 10;
@@ -454,67 +513,171 @@ export function TunnelDisplayLayer3D({
 			curveTime,
 		);
 		_relative.subVectors(_worldPoint, _cameraPoint);
-		points[i].set(
+		surfacePoints[i].set(
 			_relative.dot(_right),
 			_relative.dot(_up),
 			-_relative.dot(_tangent),
 		);
 	}
 
-	const curve = new CatmullRomCurve3(points);
+	const surfaceCurve = new CatmullRomCurve3(surfacePoints);
+	let lineCurve = surfaceCurve;
+	if (!shaderEnabled) {
+		for (let i = 0; i <= pathSamples; i++) {
+			const t = i / pathSamples;
+			const distance =
+				currentDistance +
+				lineDistanceOffset -
+				trailDistance +
+				t * visiblePathDistance;
+			computeWorldPoint(
+				_worldPoint,
+				distance,
+				tunnelDepth,
+				curveTurns,
+				curveBend,
+				curveTime,
+			);
+			_relative.subVectors(_worldPoint, _cameraPoint);
+			linePoints[i].set(
+				_relative.dot(_right),
+				_relative.dot(_up),
+				-_relative.dot(_tangent),
+			);
+		}
+		lineCurve = new CatmullRomCurve3(linePoints);
+	}
 
-	// Only recreate geometry when segment counts change; otherwise update vertices in-place
-	const structuralKey = `${lengthDetail}-${radialDetail}`;
-	if (structuralKeyRef.current !== structuralKey) {
-		if (geometryRef.current) geometryRef.current.dispose();
-		geometryRef.current = new TubeGeometry(
-			curve,
+	shaderUniforms.uTime.value = timeRef.current;
+	shaderUniforms.uTravelSpeed.value = Number(travelSpeed || 0) * 1.2;
+	shaderUniforms.uColumns.value = Math.max(1, Number(gridColumns) || 1);
+	shaderUniforms.uRows.value = Math.max(1, Number(gridRows) || 1);
+	shaderUniforms.uLineWidth.value = clamp(Number(lineWidth) || 0, 0.005, 0.3);
+	shaderUniforms.uOpacity.value = finalOpacity;
+	shaderUniforms.uTransparentSurface.value = transparentSurface ? 1 : 0;
+	shaderUniforms.uFogDistance.value = clamp(
+		Number(fogDistance ?? tunnelDepth) / Math.max(1, tunnelDepth),
+		0,
+		1,
+	);
+	shaderUniforms.uLineColor.value.set(resolvedLineColor);
+	shaderUniforms.uBackgroundColor.value.set(resolvedBackgroundColor);
+
+	const surfaceStructuralKey = `${lengthDetail}-${radialDetail}`;
+	if (surfaceStructuralKeyRef.current !== surfaceStructuralKey) {
+		if (surfaceGeometryRef.current) surfaceGeometryRef.current.dispose();
+		surfaceGeometryRef.current = new TubeGeometry(
+			surfaceCurve,
 			lengthDetail,
 			tunnelRadius,
 			radialDetail,
 			false,
 		);
-		structuralKeyRef.current = structuralKey;
-		if (meshRef.current) meshRef.current.geometry = geometryRef.current;
+		surfaceStructuralKeyRef.current = surfaceStructuralKey;
+		if (surfaceMeshRef.current) {
+			surfaceMeshRef.current.geometry = surfaceGeometryRef.current;
+		}
 		updateTubeVertices(
-			geometryRef.current,
-			curve,
+			surfaceGeometryRef.current,
+			surfaceCurve,
 			lengthDetail,
 			tunnelRadius,
 			radialDetail,
-			frameTangentsRef.current,
-			frameNormalsRef.current,
-			frameBinormalsRef.current,
-			initialFrameNormalRef.current,
+			surfaceFrameTangentsRef.current,
+			surfaceFrameNormalsRef.current,
+			surfaceFrameBinormalsRef.current,
+			surfaceInitialFrameNormalRef.current,
 		);
-	} else if (geometryRef.current) {
+	} else if (surfaceGeometryRef.current) {
 		updateTubeVertices(
-			geometryRef.current,
-			curve,
+			surfaceGeometryRef.current,
+			surfaceCurve,
 			lengthDetail,
 			tunnelRadius,
 			radialDetail,
-			frameTangentsRef.current,
-			frameNormalsRef.current,
-			frameBinormalsRef.current,
-			initialFrameNormalRef.current,
+			surfaceFrameTangentsRef.current,
+			surfaceFrameNormalsRef.current,
+			surfaceFrameBinormalsRef.current,
+			surfaceInitialFrameNormalRef.current,
+		);
+	}
+
+	const lineStructuralKey = `${lineRows}-${lineColumns}`;
+	if (lineStructuralKeyRef.current !== lineStructuralKey) {
+		if (lineGeometryRef.current) lineGeometryRef.current.dispose();
+		lineGeometryRef.current = new TubeGeometry(
+			lineCurve,
+			lineRows,
+			tunnelRadius,
+			lineColumns,
+			false,
+		);
+		lineStructuralKeyRef.current = lineStructuralKey;
+		if (lineMeshRef.current) {
+			lineMeshRef.current.geometry = lineGeometryRef.current;
+		}
+		updateTubeVertices(
+			lineGeometryRef.current,
+			lineCurve,
+			lineRows,
+			tunnelRadius,
+			lineColumns,
+			lineFrameTangentsRef.current,
+			lineFrameNormalsRef.current,
+			lineFrameBinormalsRef.current,
+			lineInitialFrameNormalRef.current,
+		);
+		updateTubeFogColors(
+			lineGeometryRef.current,
+			lineRows,
+			lineColumns,
+			lineColorValue,
+			backgroundColorValue,
+			shaderUniforms.uFogDistance.value,
+		);
+	} else if (lineGeometryRef.current) {
+		updateTubeVertices(
+			lineGeometryRef.current,
+			lineCurve,
+			lineRows,
+			tunnelRadius,
+			lineColumns,
+			lineFrameTangentsRef.current,
+			lineFrameNormalsRef.current,
+			lineFrameBinormalsRef.current,
+			lineInitialFrameNormalRef.current,
+		);
+		updateTubeFogColors(
+			lineGeometryRef.current,
+			lineRows,
+			lineColumns,
+			lineColorValue,
+			backgroundColorValue,
+			shaderUniforms.uFogDistance.value,
 		);
 	}
 
 	// Dispose geometry on unmount
 	React.useEffect(() => {
 		return () => {
-			if (geometryRef.current) {
-				geometryRef.current.dispose();
-				geometryRef.current = null;
+			if (surfaceGeometryRef.current) {
+				surfaceGeometryRef.current.dispose();
+				surfaceGeometryRef.current = null;
+			}
+			if (lineGeometryRef.current) {
+				lineGeometryRef.current.dispose();
+				lineGeometryRef.current = null;
 			}
 		};
 	}, []);
 
 	// Assign geometry on first mount
 	React.useEffect(() => {
-		if (meshRef.current && geometryRef.current) {
-			meshRef.current.geometry = geometryRef.current;
+		if (surfaceMeshRef.current && surfaceGeometryRef.current) {
+			surfaceMeshRef.current.geometry = surfaceGeometryRef.current;
+		}
+		if (lineMeshRef.current && lineGeometryRef.current) {
+			lineMeshRef.current.geometry = lineGeometryRef.current;
 		}
 	});
 	useFrame(() => {
@@ -540,10 +703,67 @@ export function TunnelDisplayLayer3D({
 			quaternion={fallbackGroupQuaternionRef.current}
 			scale={[1, 1, 1]}
 		>
-			<mesh ref={meshRef} renderOrder={order} frustumCulled={false}>
+			<mesh
+				ref={surfaceMeshRef}
+				renderOrder={order}
+				frustumCulled={false}
+				visible={!shaderEnabled}
+			>
+				<meshBasicMaterial
+					color={resolvedBackgroundColor}
+					transparent={true}
+					side={BackSide}
+					depthTest={true}
+					depthWrite={!transparentSurface && finalOpacity > 0}
+					opacity={transparentSurface ? 0 : finalOpacity}
+					premultipliedAlpha={requiresPremultipliedAlpha(sceneBlendMode)}
+					blending={blending}
+					blendEquation={sceneMask ? AddEquation : undefined}
+					blendSrc={sceneMask ? ZeroFactor : undefined}
+					blendDst={sceneMask ? OneFactor : undefined}
+					blendEquationAlpha={sceneMask ? AddEquation : undefined}
+					blendSrcAlpha={sceneMask ? OneFactor : undefined}
+					blendDstAlpha={sceneMask ? ZeroFactor : undefined}
+				/>
+			</mesh>
+			<mesh
+				ref={lineMeshRef}
+				renderOrder={order + 0.01}
+				frustumCulled={false}
+				visible={!shaderEnabled}
+			>
+				<meshBasicMaterial
+					color={resolvedLineColor}
+					vertexColors={true}
+					wireframe={true}
+					wireframeLinewidth={Math.max(
+						1,
+						clamp(Number(lineWidth) || 0, 0.005, 0.3) * 100,
+					)}
+					transparent={true}
+					side={BackSide}
+					depthTest={true}
+					depthWrite={false}
+					opacity={finalOpacity}
+					premultipliedAlpha={requiresPremultipliedAlpha(sceneBlendMode)}
+					blending={blending}
+					blendEquation={sceneMask ? AddEquation : undefined}
+					blendSrc={sceneMask ? ZeroFactor : undefined}
+					blendDst={sceneMask ? OneFactor : undefined}
+					blendEquationAlpha={sceneMask ? AddEquation : undefined}
+					blendSrcAlpha={sceneMask ? OneFactor : undefined}
+					blendDstAlpha={sceneMask ? ZeroFactor : undefined}
+				/>
+			</mesh>
+			<mesh
+				renderOrder={order}
+				frustumCulled={false}
+				visible={shaderEnabled}
+				geometry={surfaceGeometryRef.current || undefined}
+			>
 				<shaderMaterial
-					ref={materialRef}
-					uniforms={uniforms}
+					ref={shaderMaterialRef}
+					uniforms={shaderUniforms}
 					vertexShader={TUNNEL_VERTEX_SHADER}
 					fragmentShader={TUNNEL_FRAGMENT_SHADER}
 					transparent={true}
