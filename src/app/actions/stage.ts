@@ -1,11 +1,11 @@
-import { clamp } from "@/lib/utils/math";
 import {
 	DEFAULT_CANVAS_BGCOLOR,
 	DEFAULT_CANVAS_HEIGHT,
 	DEFAULT_CANVAS_WIDTH,
 	DEFAULT_ZOOM,
 } from "@/app/constants";
-import { renderBackend } from "@/app/global";
+import { renderBackend, renderer } from "@/app/global";
+import { clamp } from "@/lib/utils/math";
 import create from "zustand";
 import { touchProject } from "./project";
 
@@ -37,6 +37,7 @@ export function updateStage(props: Partial<StageState>) {
 	stageStore.setState(props as StageState);
 
 	renderBackend.update(props);
+	renderer.requestRender();
 }
 
 export function updateCanvas(

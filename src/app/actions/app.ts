@@ -520,16 +520,18 @@ export function setActiveElementId(elementId?: string | null) {
 
 export function setCameraModeEnabled(enabled: boolean) {
 	appStore.setState({ cameraModeEnabled: enabled });
+	renderer.setContinuousRendering("camera-mode", enabled);
+	renderer.requestRender();
 }
 
 export function setDisplayTransformModeEnabled(enabled: boolean) {
 	appStore.setState({ displayTransformModeEnabled: enabled });
+	renderer.setContinuousRendering("display-transform", enabled);
+	renderer.requestRender();
 }
 
 export function toggleCameraMode() {
-	appStore.setState((state) => ({
-		cameraModeEnabled: !state.cameraModeEnabled,
-	}));
+	setCameraModeEnabled(!appStore.getState().cameraModeEnabled);
 }
 
 export function toggleLeftPanelVisibility() {

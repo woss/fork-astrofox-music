@@ -59,6 +59,7 @@ interface SceneElement {
 		getSize: () => { width: number; height: number };
 	}) => void;
 	removeFromScene?: (scene: Scene) => void;
+	dispose?: () => void;
 	toJSON: () => Record<string, unknown>;
 }
 
@@ -318,6 +319,8 @@ export default class Scene extends Display {
 			obj.removeFromScene(this);
 		}
 
+		obj.dispose?.();
+
 		return true;
 	}
 
@@ -341,5 +344,15 @@ export default class Scene extends Display {
 			displays: displays.map((display: SceneElement) => display.toJSON()),
 			effects: effects.map((effect: SceneElement) => effect.toJSON()),
 		};
+	}
+
+	dispose() {
+		for (const effect of [...(this.effects as SceneElement[])]) {
+			this.removeElement(effect);
+		}
+
+		for (const display of [...(this.displays as SceneElement[])]) {
+			this.removeElement(display);
+		}
 	}
 }

@@ -6,7 +6,7 @@ import useAudioStore, { loadAudioFile } from "@/app/actions/audio";
 import useScenes, { getSceneIdForElement } from "@/app/actions/scenes";
 import useStage from "@/app/actions/stage";
 import Spinner from "@/app/components/interface/Spinner";
-import { renderBackend, stage } from "@/app/global";
+import { renderBackend, renderer, stage } from "@/app/global";
 import { VectorSquare, Video } from "@/app/icons";
 import { Button } from "@/components/ui/button";
 import {
@@ -99,8 +99,10 @@ export default function Stage() {
 			height,
 			backgroundColor,
 		});
+		renderer.requestRender();
 
 		return () => {
+			renderer.stop();
 			renderBackend.dispose();
 		};
 	}, []);

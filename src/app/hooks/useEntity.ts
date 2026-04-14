@@ -1,7 +1,8 @@
-import type Entity from "@/lib/core/Entity";
 import { touchProject } from "@/app/actions/project";
+import { renderer } from "@/app/global";
 import useForceUpdate from "@/app/hooks/useForceUpdate";
 import useTimeout from "@/app/hooks/useTimeout";
+import type Entity from "@/lib/core/Entity";
 import { useCallback } from "react";
 
 export default function useEntity(entity: Entity | null, touchTimeout = 1000) {
@@ -14,6 +15,7 @@ export default function useEntity(entity: Entity | null, touchTimeout = 1000) {
 				if (touchTimeout) {
 					touch();
 				}
+				renderer.requestRender();
 				forceUpdate();
 			}
 		},

@@ -1,12 +1,12 @@
-import Entity from "@/lib/core/Entity";
-import EntityList from "@/lib/core/EntityList";
-import Scene from "@/lib/core/Scene";
-import { isDefined } from "@/lib/utils/array";
 import {
 	DEFAULT_CANVAS_BGCOLOR,
 	DEFAULT_CANVAS_HEIGHT,
 	DEFAULT_CANVAS_WIDTH,
 } from "@/app/constants";
+import Entity from "@/lib/core/Entity";
+import EntityList from "@/lib/core/EntityList";
+import Scene from "@/lib/core/Scene";
+import { isDefined } from "@/lib/utils/array";
 import cloneDeep from "lodash/cloneDeep";
 
 export default class Stage extends Entity {
@@ -35,11 +35,11 @@ export default class Stage extends Entity {
 		const changed = super.update(properties);
 
 		if (changed && isDefined(width, height)) {
-			this.scenes.forEach(
-				(scene: { setSize: (w: number, h: number) => void }) => {
-					scene.setSize(width as number, height as number);
-				},
-			);
+			for (const scene of this.scenes as Array<{
+				setSize: (w: number, h: number) => void;
+			}>) {
+				scene.setSize(width as number, height as number);
+			}
 		}
 
 		return changed;
@@ -64,7 +64,8 @@ export default class Stage extends Entity {
 				scene: { getElementById: (id: string) => unknown },
 			) => {
 				if (!element) {
-					element = scene.getElementById(id);
+					const nextElement = scene.getElementById(id);
+					return nextElement || element;
 				}
 				return element;
 			},
@@ -115,12 +116,15 @@ export default class Stage extends Entity {
 	}
 
 	removeScene(scene: unknown) {
+		(scene as Scene).dispose?.();
 		this.scenes.removeElement(scene);
 		(scene as Scene).stage = null;
 	}
 
 	clearScenes() {
-		[...this.scenes].forEach((scene) => this.removeScene(scene));
+		for (const scene of [...this.scenes]) {
+			this.removeScene(scene);
+		}
 	}
 
 	hasScenes() {

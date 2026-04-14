@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { stage } from "@/app/global";
+import { renderer, stage } from "@/app/global";
 import { getDisplayRenderGroup } from "@/lib/utils/displayRenderGroup";
 import cloneDeep from "lodash/cloneDeep";
 import create from "zustand";
@@ -61,6 +61,7 @@ function normalizeScenes(scenes) {
 
 function setScenesState(scenes, touch = true) {
 	sceneStore.setState(normalizeScenes(scenes));
+	renderer.requestRender();
 
 	if (touch) {
 		touchProject();
@@ -219,6 +220,7 @@ export function resetScenes(touch = true) {
 	sceneStore.setState({ ...initialState });
 
 	stage.clearScenes();
+	renderer.requestRender();
 
 	if (touch) {
 		touchProject();

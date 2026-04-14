@@ -152,9 +152,8 @@ export default class VideoDisplay extends Display {
 		this.video = document.createElement("video");
 		this.video.muted = true;
 		this.video.playsInline = true;
-		this.video.preload = "auto";
+		this.video.preload = "metadata";
 		this.video.crossOrigin = "anonymous";
-		this.video.addEventListener("timeupdate", this.handleTimeUpdate);
 
 		const props = this.properties as Record<string, unknown>;
 		if (props.src !== BLANK_IMAGE) {
@@ -245,8 +244,6 @@ export default class VideoDisplay extends Display {
 				} else {
 					this.video.src = p.src as string;
 					this.video.loop = Boolean(p.loop && !p.endTime);
-					const playPromise = this.video.play();
-					if (playPromise?.catch) playPromise.catch(() => {});
 
 					const onLoadedMetadata = () => {
 						const props = this.properties as Record<string, unknown>;
@@ -290,5 +287,12 @@ export default class VideoDisplay extends Display {
 		}
 
 		return changed;
+	}
+
+	dispose() {
+		this.video.pause();
+		this.video.removeEventListener("timeupdate", this.handleTimeUpdate);
+		this.video.removeAttribute("src");
+		this.video.load();
 	}
 }

@@ -8,7 +8,6 @@ import {
 import type { RenderFrameData } from "@/lib/types";
 import Clock from "./Clock";
 
-const STOP_RENDERING = 0;
 const VIDEO_RENDERING = -1;
 
 export default class Renderer {
@@ -16,11 +15,19 @@ export default class Renderer {
 	clock: Clock;
 	frameData: RenderFrameData;
 	time: number;
+	frameCount: number;
+	rafId: number | null;
+	needsRender: boolean;
+	continuousReasons: Set<string>;
 
 	constructor() {
 		this.rendering = false;
 		this.clock = new Clock();
 		this.time = 0;
+		this.frameCount = 0;
+		this.rafId = null;
+		this.needsRender = true;
+		this.continuousReasons = new Set();
 
 		// Frame render data
 		this.frameData = {
@@ -37,9 +44,12 @@ export default class Renderer {
 
 		// Bind context
 		this.render = this.render.bind(this);
+		this.handlePlaybackChange = this.handlePlaybackChange.bind(this);
+		this.handleSourceChange = this.handleSourceChange.bind(this);
 
 		// Events
-		player.on("playback-change", this.resetAnalyzer);
+		player.on("playback-change", this.handlePlaybackChange);
+		player.on("source-change", this.handleSourceChange);
 	}
 
 	resetAnalyzer() {
@@ -48,25 +58,62 @@ export default class Renderer {
 		}
 	}
 
-	start() {
-		if (!this.rendering) {
-			this.time = Date.now();
-			this.rendering = true;
+	handlePlaybackChange() {
+		this.resetAnalyzer();
+		this.requestRender();
+	}
 
-			this.resetAnalyzer();
-			this.render();
+	handleSourceChange() {
+		this.requestRender();
+	}
+
+	shouldKeepRendering() {
+		return player.isPlaying() || this.continuousReasons.size > 0;
+	}
+
+	scheduleRender() {
+		if (this.rafId !== null) {
+			return;
 		}
+
+		this.rafId = window.requestAnimationFrame(this.render);
+	}
+
+	start() {
+		this.time = Date.now();
+		this.rendering = true;
+		this.requestRender();
 	}
 
 	stop() {
-		const { id } = this.frameData;
-
-		if (id) {
-			window.cancelAnimationFrame(id);
+		if (this.rafId !== null) {
+			window.cancelAnimationFrame(this.rafId);
+			this.rafId = null;
 		}
 
-		this.frameData.id = STOP_RENDERING;
 		this.rendering = false;
+		this.needsRender = false;
+	}
+
+	requestRender() {
+		this.needsRender = true;
+
+		if (!this.rendering) {
+			this.rendering = true;
+		}
+
+		this.scheduleRender();
+	}
+
+	setContinuousRendering(reason: string, enabled: boolean) {
+		if (enabled) {
+			this.continuousReasons.add(reason);
+			this.start();
+			return;
+		}
+
+		this.continuousReasons.delete(reason);
+		this.requestRender();
 	}
 
 	getFrameData(id: number): RenderFrameData {
@@ -124,7 +171,19 @@ export default class Renderer {
 	}
 
 	render() {
-		const id = window.requestAnimationFrame(this.render);
+		this.rafId = null;
+
+		if (!this.rendering) {
+			return;
+		}
+
+		if (!this.shouldKeepRendering() && !this.needsRender) {
+			this.rendering = false;
+			return;
+		}
+
+		const id = ++this.frameCount;
+		this.needsRender = false;
 
 		this.clock.update();
 
@@ -135,5 +194,12 @@ export default class Renderer {
 		renderBackend.render(data);
 
 		events.emit("render", data);
+
+		if (this.shouldKeepRendering() || this.needsRender) {
+			this.scheduleRender();
+			return;
+		}
+
+		this.rendering = false;
 	}
 }

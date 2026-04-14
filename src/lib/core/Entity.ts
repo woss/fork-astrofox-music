@@ -54,6 +54,8 @@ export default class Entity {
 		return `[${this.name} ${this.id}]`;
 	}
 
+	dispose() {}
+
 	toJSON(): Record<string, unknown> {
 		const { id, name, type, enabled, properties } = this;
 
