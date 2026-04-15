@@ -1,4 +1,5 @@
 import Display from "@/lib/core/Display";
+import { GRID_MOTION_OPTIONS } from "@/lib/core/render/geometry/gridMotion";
 
 const materialOptions = [
 	"Basic",
@@ -12,8 +13,6 @@ const materialOptions = [
 
 const shadingOptions = ["Smooth", "Flat"];
 
-const motionOptions = ["Wave", "Ripple", "Pulse", "Twist", "Noise"];
-
 export default class MeshGridDisplay extends Display {
 	static config = {
 		name: "MeshGridDisplay",
@@ -23,7 +22,7 @@ export default class MeshGridDisplay extends Display {
 		defaultProperties: {
 			material: "Standard",
 			shading: "Smooth",
-			motion: "Wave",
+			motion: "Horizontal",
 			color: "#FFFFFF",
 			wireframe: true,
 			edges: false,
@@ -55,7 +54,7 @@ export default class MeshGridDisplay extends Display {
 			motion: {
 				label: "Motion",
 				type: "select",
-				items: motionOptions,
+				items: [...GRID_MOTION_OPTIONS],
 			},
 			color: {
 				label: "Color",

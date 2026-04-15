@@ -1,12 +1,17 @@
 // @ts-nocheck
-import FFTParser from "@/lib/audio/FFTParser";
 import React from "react";
 import {
 	AddEquation,
 	BoxGeometry,
 	Color,
 	CustomBlending,
+	MeshBasicMaterial,
+	MeshLambertMaterial,
+	MeshNormalMaterial,
+	MeshPhongMaterial,
+	MeshPhysicalMaterial,
 	MeshStandardMaterial,
+	Object3D,
 	OneFactor,
 	ZeroFactor,
 } from "three";
@@ -14,10 +19,14 @@ import {
 	getThreeBlending,
 	requiresPremultipliedAlpha,
 } from "../layers/TexturePlane";
+import {
+	createGridMotionContext,
+	sampleProceduralGridMotion,
+} from "./gridMotion";
 
-const MOTION_SPEED = 0.08;
 const DEPTH_BASE_RATIO = 0.1;
 const DEPTH_MAX_RATIO = 3.6;
+const EDGE_SEGMENT_COUNT = 12;
 
 function clamp(value: number, min: number, max: number) {
 	return Math.max(min, Math.min(max, value));
@@ -43,174 +52,194 @@ function getLiftedSurfaceColor(colorValue: string) {
 	);
 }
 
-function sampleSpectrum(values: Float32Array, t: number) {
-	if (!values.length) {
-		return 0;
-	}
-
-	const clampedT = clamp(t, 0, 1) * (values.length - 1);
-	const baseIndex = Math.floor(clampedT);
-	const nextIndex = Math.min(values.length - 1, baseIndex + 1);
-	const mix = clampedT - baseIndex;
-
-	return values[baseIndex] * (1 - mix) + values[nextIndex] * mix;
+function getCubeEdgeThickness(size: number, depth: number) {
+	return clamp(Math.min(size, depth) * 0.08, 0.8, 3.5);
 }
 
-function wrap01(value: number) {
-	const wrapped = value % 1;
-	return wrapped < 0 ? wrapped + 1 : wrapped;
-}
-
-function sampleSpectrumBinLinear(
-	values: Float32Array,
+function setInstanceTransform(
+	mesh,
+	object: Object3D,
 	index: number,
-	count: number,
+	x: number,
+	y: number,
+	z: number,
+	scaleX: number,
+	scaleY: number,
+	scaleZ: number,
 ) {
-	if (values.length === 0 || count <= 1) {
-		return values[0] ?? 0;
-	}
-
-	const position = (index / (count - 1)) * Math.max(0, values.length - 1);
-	const lower = Math.floor(position);
-	const upper = Math.min(values.length - 1, lower + 1);
-	const mix = position - lower;
-	const start = values[lower] ?? 0;
-	const end = values[upper] ?? start;
-
-	return start + (end - start) * mix;
+	object.position.set(x, y, z);
+	object.scale.set(scaleX, scaleY, scaleZ);
+	object.updateMatrix();
+	mesh.setMatrixAt(index, object.matrix);
 }
 
-function sampleStaticSpectrumField(
-	values: Float32Array,
-	row: number,
-	column: number,
-	rows: number,
-	columns: number,
+function writeCubeEdgeInstances(
+	mesh,
+	object: Object3D,
+	startIndex: number,
+	centerX: number,
+	centerZ: number,
+	size: number,
+	depth: number,
+	thickness: number,
 ) {
-	if (!values.length) {
-		return 0;
-	}
+	const halfSize = size / 2;
+	const halfThickness = thickness / 2;
+	const topY = Math.max(halfThickness, depth - halfThickness);
+	const midY = depth / 2;
+	let index = startIndex;
 
-	const totalCells = Math.max(2, rows * columns);
-	return sampleSpectrumBinLinear(values, row * columns + column, totalCells);
-}
-
-function wrapIndex(value: number, size: number) {
-	const wrapped = value % size;
-	return wrapped < 0 ? wrapped + size : wrapped;
-}
-
-function sampleStaticSpectrumGridLinear(
-	values: Float32Array,
-	row: number,
-	column: number,
-	rows: number,
-	columns: number,
-) {
-	if (rows <= 0 || columns <= 0) {
-		return 0;
-	}
-
-	const rowWrapped = wrapIndex(row, rows);
-	const columnWrapped = wrapIndex(column, columns);
-	const row0 = Math.floor(rowWrapped);
-	const row1 = (row0 + 1) % rows;
-	const column0 = Math.floor(columnWrapped);
-	const column1 = (column0 + 1) % columns;
-	const rowMix = rowWrapped - row0;
-	const columnMix = columnWrapped - column0;
-	const a = sampleStaticSpectrumField(values, row0, column0, rows, columns);
-	const b = sampleStaticSpectrumField(values, row0, column1, rows, columns);
-	const c = sampleStaticSpectrumField(values, row1, column0, rows, columns);
-	const d = sampleStaticSpectrumField(values, row1, column1, rows, columns);
-	const top = a + (b - a) * columnMix;
-	const bottom = c + (d - c) * columnMix;
-
-	return top + (bottom - top) * rowMix;
-}
-
-function sampleStaticSpectrumNormalized(
-	values: Float32Array,
-	u: number,
-	v: number,
-	rows: number,
-	columns: number,
-) {
-	return sampleStaticSpectrumGridLinear(
-		values,
-		wrap01(v) * rows,
-		wrap01(u) * columns,
-		rows,
-		columns,
+	setInstanceTransform(
+		mesh,
+		object,
+		index++,
+		centerX,
+		halfThickness,
+		centerZ + halfSize,
+		size,
+		thickness,
+		thickness,
 	);
+	setInstanceTransform(
+		mesh,
+		object,
+		index++,
+		centerX,
+		halfThickness,
+		centerZ - halfSize,
+		size,
+		thickness,
+		thickness,
+	);
+	setInstanceTransform(
+		mesh,
+		object,
+		index++,
+		centerX,
+		topY,
+		centerZ + halfSize,
+		size,
+		thickness,
+		thickness,
+	);
+	setInstanceTransform(
+		mesh,
+		object,
+		index++,
+		centerX,
+		topY,
+		centerZ - halfSize,
+		size,
+		thickness,
+		thickness,
+	);
+	setInstanceTransform(
+		mesh,
+		object,
+		index++,
+		centerX - halfSize,
+		halfThickness,
+		centerZ,
+		thickness,
+		thickness,
+		size,
+	);
+	setInstanceTransform(
+		mesh,
+		object,
+		index++,
+		centerX + halfSize,
+		halfThickness,
+		centerZ,
+		thickness,
+		thickness,
+		size,
+	);
+	setInstanceTransform(
+		mesh,
+		object,
+		index++,
+		centerX - halfSize,
+		topY,
+		centerZ,
+		thickness,
+		thickness,
+		size,
+	);
+	setInstanceTransform(
+		mesh,
+		object,
+		index++,
+		centerX + halfSize,
+		topY,
+		centerZ,
+		thickness,
+		thickness,
+		size,
+	);
+	setInstanceTransform(
+		mesh,
+		object,
+		index++,
+		centerX - halfSize,
+		midY,
+		centerZ + halfSize,
+		thickness,
+		depth,
+		thickness,
+	);
+	setInstanceTransform(
+		mesh,
+		object,
+		index++,
+		centerX + halfSize,
+		midY,
+		centerZ + halfSize,
+		thickness,
+		depth,
+		thickness,
+	);
+	setInstanceTransform(
+		mesh,
+		object,
+		index++,
+		centerX - halfSize,
+		midY,
+		centerZ - halfSize,
+		thickness,
+		depth,
+		thickness,
+	);
+	setInstanceTransform(
+		mesh,
+		object,
+		index++,
+		centerX + halfSize,
+		midY,
+		centerZ - halfSize,
+		thickness,
+		depth,
+		thickness,
+	);
+
+	return index;
 }
 
-function getSpectrumAmplitude(
-	values: Float32Array,
-	motion: string,
-	row: number,
-	column: number,
-	rows: number,
-	columns: number,
-	time: number,
-) {
-	if (!values.length) {
-		return 0;
+function createCubeSurfaceMaterial(material: string, props) {
+	switch (material) {
+		case "Basic":
+			return new MeshBasicMaterial(props);
+		case "Lambert":
+			return new MeshLambertMaterial(props);
+		case "Normal":
+			return new MeshNormalMaterial(props);
+		case "Phong":
+			return new MeshPhongMaterial(props);
+		case "Physical":
+			return new MeshPhysicalMaterial(props);
+		default:
+			return new MeshStandardMaterial(props);
 	}
-
-	const rowDrift = time * MOTION_SPEED * rows;
-	if (motion === "Static") {
-		return sampleStaticSpectrumField(values, row, column, rows, columns);
-	}
-
-	if (motion === "Horizontal") {
-		return sampleStaticSpectrumGridLinear(
-			values,
-			row + rowDrift,
-			column,
-			rows,
-			columns,
-		);
-	}
-
-	if (motion === "Vertical") {
-		const u = (column + 0.5) / Math.max(1, columns);
-		const v = (row + 0.5) / Math.max(1, rows);
-		return sampleStaticSpectrumNormalized(
-			values,
-			1 - v,
-			u + time * MOTION_SPEED,
-			rows,
-			columns,
-		);
-	}
-
-	const totalCells = Math.max(2, rows * columns);
-	const u = columns <= 1 ? 0 : column / (columns - 1);
-	const v = rows <= 1 ? 0 : row / (rows - 1);
-
-	if (motion === "Diagonal") {
-		const mapped = u * 0.72 + v * 0.28;
-		return sampleSpectrumBinLinear(
-			values,
-			wrap01(mapped + time * MOTION_SPEED) * (totalCells - 1),
-			totalCells,
-		);
-	}
-
-	const centeredU = u - 0.5;
-	const centeredV = v - 0.5;
-	const mapped =
-		motion === "Radial"
-			? Math.sqrt(centeredU * centeredU + centeredV * centeredV) /
-				Math.sqrt(0.5 * 0.5 + 0.5 * 0.5)
-			: Math.atan2(centeredV, centeredU) / (Math.PI * 2) + 0.5;
-
-	return sampleSpectrumBinLinear(
-		values,
-		wrap01(mapped + time * MOTION_SPEED) * (totalCells - 1),
-		totalCells,
-	);
 }
 
 export function CubesDisplayLayer3D({
@@ -225,50 +254,52 @@ export function CubesDisplayLayer3D({
 }) {
 	const { properties = {} } = display;
 	const {
+		material = "Standard",
+		shading = "Smooth",
+		color = "#000000",
+		wireframe = false,
+		edges = true,
+		edgeColor = "#FFFFFF",
+		x = 0,
+		y = 0,
+		z = 0,
 		rows = 8,
 		columns = 8,
+		separation = 32,
 		gap = 2,
-		surfaceColor = "#000000",
-		borderColor = "#FFFFFF",
 		motion = "Horizontal",
-		height: heightScale = 4,
-		reactivity = undefined,
+		height: heightScale = 28,
+		speed = 1,
+		frequencyX = 0.3,
+		frequencyY = 0.5,
 		opacity = 1,
 	} = properties;
 
-	const parserRef = React.useRef(new FFTParser(properties));
 	const timeRef = React.useRef(0);
-
-	parserRef.current.update(properties);
+	const surfaceMeshRef = React.useRef(null);
+	const edgeMeshRef = React.useRef(null);
+	const surfaceInstanceObject = React.useMemo(() => new Object3D(), []);
+	const edgeInstanceObject = React.useMemo(() => new Object3D(), []);
 
 	if (frameData?.hasUpdate) {
-		timeRef.current += Math.max(0, Number(frameData?.delta ?? 16.667)) / 1000;
+		timeRef.current +=
+			(Math.max(0, Number(frameData?.delta ?? 16.667)) / 1000) *
+			Math.max(0, Number(speed) || 0);
 	}
 
 	const gridRows = Math.max(1, Math.round(Number(rows) || 1));
 	const gridColumns = Math.max(1, Math.round(Number(columns) || 1));
-	const viewportWidth = Math.max(1, Number(width) || 1);
-	const viewportHeight = Math.max(1, Number(height) || 1);
-	const cellSize = Math.min(
-		viewportWidth / gridColumns,
-		viewportHeight / gridRows,
-	);
-	const gridWidth = cellSize * gridColumns;
-	const gridHeight = cellSize * gridRows;
-	const blockGap = clamp(Number(gap) || 0, 0, Math.max(0, cellSize - 2));
-	const cubeSize = Math.max(2, cellSize - blockGap);
-	const cellDepth = cellSize;
+	const gridSeparation = Math.max(8, Number(separation) || 8);
+	const gridWidth = gridSeparation * gridColumns;
+	const gridHeight = gridSeparation * gridRows;
+	const blockGap = clamp(Number(gap) || 0, 0, Math.max(0, gridSeparation - 2));
+	const cubeSize = Math.max(2, gridSeparation - blockGap);
+	const cellDepth = gridSeparation;
 	const baseDepth = Math.max(4, cellDepth * DEPTH_BASE_RATIO);
 	const maxDepth = cellDepth * DEPTH_MAX_RATIO;
-	const extrusionHeight = clamp(
-		Number(heightScale ?? reactivity ?? 1) || 0,
-		0,
-		8,
-	);
-	const spectrumBins = Math.max(32, Math.min(512, gridRows * gridColumns * 2));
-	const spectrum = frameData?.fft
-		? parserRef.current.parseFFT(frameData.fft, spectrumBins)
-		: new Float32Array(spectrumBins);
+	const extrusionHeight = Math.max(0, Number(heightScale) || 0);
+	const resolvedFrequencyX = Math.max(0.05, Number(frequencyX) || 0.05);
+	const resolvedFrequencyY = Math.max(0.05, Number(frequencyY) || 0.05);
 	const finalOpacity = clamp(
 		Number(opacity ?? 1) * Number(sceneOpacity ?? 1),
 		0,
@@ -277,8 +308,8 @@ export function CubesDisplayLayer3D({
 	const blending = sceneMask
 		? CustomBlending
 		: getThreeBlending(sceneBlendMode);
-	const resolvedSurfaceColor = sceneMask ? "#000000" : surfaceColor;
-	const resolvedBorderColor = sceneMask ? "#000000" : borderColor;
+	const resolvedSurfaceColor = sceneMask ? "#000000" : color;
+	const resolvedBorderColor = sceneMask ? "#000000" : edgeColor;
 	const litSurfaceColor = React.useMemo(
 		() => getLiftedSurfaceColor(resolvedSurfaceColor),
 		[resolvedSurfaceColor],
@@ -289,6 +320,7 @@ export function CubesDisplayLayer3D({
 	);
 	const premultipliedAlpha = requiresPremultipliedAlpha(sceneBlendMode);
 	const borderOpacity = sceneMask ? 1 : Math.min(1, finalOpacity * 0.95);
+	const meshPosition = [Number(x) || 0, -(Number(y) || 0), Number(z) || 0];
 	const surfaceEmissiveColor = React.useMemo(
 		() => new Color(resolvedSurfaceColor).multiplyScalar(sceneMask ? 0 : 0.08),
 		[resolvedSurfaceColor, sceneMask],
@@ -298,13 +330,23 @@ export function CubesDisplayLayer3D({
 		geometry.translate(0, 0.5, 0);
 		return geometry;
 	}, []);
+	const edgeGeometry = React.useMemo(() => new BoxGeometry(1, 1, 1), []);
 	const surfaceMaterial = React.useMemo(
 		() =>
-			new MeshStandardMaterial({
-				color: litSurfaceColor,
-				emissive: surfaceEmissiveColor,
+			createCubeSurfaceMaterial(String(material || "Standard"), {
+				color:
+					String(material || "Standard") === "Normal"
+						? undefined
+						: litSurfaceColor,
+				emissive:
+					String(material || "Standard") === "Basic" ||
+					String(material || "Standard") === "Normal"
+						? undefined
+						: surfaceEmissiveColor,
 				transparent: true,
 				opacity: finalOpacity,
+				wireframe,
+				flatShading: shading === "Flat",
 				roughness: 0.72,
 				metalness: 0.04,
 				premultipliedAlpha,
@@ -322,9 +364,12 @@ export function CubesDisplayLayer3D({
 			blending,
 			finalOpacity,
 			litSurfaceColor,
+			material,
 			premultipliedAlpha,
+			shading,
 			surfaceEmissiveColor,
 			sceneMask,
+			wireframe,
 		],
 	);
 	const edgeMaterial = React.useMemo(
@@ -333,16 +378,12 @@ export function CubesDisplayLayer3D({
 				color: litBorderColor,
 				transparent: true,
 				opacity: borderOpacity,
-				wireframe: true,
 				roughness: 0.7,
 				metalness: 0.03,
 				premultipliedAlpha,
 				blending,
 				depthTest: true,
-				depthWrite: false,
-				polygonOffset: true,
-				polygonOffsetFactor: -1,
-				polygonOffsetUnits: -1,
+				depthWrite: true,
 				blendEquation: sceneMask ? AddEquation : undefined,
 				blendSrc: sceneMask ? ZeroFactor : undefined,
 				blendDst: sceneMask ? OneFactor : undefined,
@@ -355,38 +396,96 @@ export function CubesDisplayLayer3D({
 	React.useEffect(() => {
 		return () => {
 			boxGeometry.dispose();
+			edgeGeometry.dispose();
 			surfaceMaterial.dispose();
 			edgeMaterial.dispose();
 		};
-	}, [boxGeometry, edgeMaterial, surfaceMaterial]);
+	}, [boxGeometry, edgeGeometry, edgeMaterial, surfaceMaterial]);
 
-	const cubes = [];
+	const cubeTransforms = [];
 	for (let rowIndex = 0; rowIndex < gridRows; rowIndex += 1) {
 		for (let columnIndex = 0; columnIndex < gridColumns; columnIndex += 1) {
-			const value = getSpectrumAmplitude(
-				spectrum,
-				motion,
-				rowIndex,
+			const motionContext = createGridMotionContext(
 				columnIndex,
-				gridRows,
+				rowIndex,
 				gridColumns,
+				gridRows,
 				timeRef.current,
+				resolvedFrequencyX,
+				resolvedFrequencyY,
 			);
-			const shapedValue = clamp(value, 0, 1) ** 0.8;
-			const x = -gridWidth / 2 + cellSize * (columnIndex + 0.5);
-			const z = -gridHeight / 2 + cellSize * (rowIndex + 0.5);
-			const depth = baseDepth + shapedValue * extrusionHeight * maxDepth;
-
-			cubes.push({
-				key: `${rowIndex}-${columnIndex}`,
-				position: [x, 0, z],
-				scale: [cubeSize, depth, cubeSize],
+			const displacement = sampleProceduralGridMotion(
+				String(motion || "Horizontal"),
+				motionContext,
+				extrusionHeight,
+			);
+			const cubeX = -gridWidth / 2 + gridSeparation * (columnIndex + 0.5);
+			const cubeZ = -gridHeight / 2 + gridSeparation * (rowIndex + 0.5);
+			const depth = clamp(baseDepth + displacement, 2, baseDepth + maxDepth);
+			cubeTransforms.push({
+				x: cubeX,
+				z: cubeZ,
+				depth,
+				edgeThickness: getCubeEdgeThickness(cubeSize, depth),
 			});
 		}
 	}
+	const cubeCount = cubeTransforms.length;
+	const edgeCount = edges ? cubeCount * EDGE_SEGMENT_COUNT : 0;
+
+	React.useLayoutEffect(() => {
+		const surfaceMesh = surfaceMeshRef.current;
+		if (surfaceMesh) {
+			for (let index = 0; index < cubeCount; index += 1) {
+				const cube = cubeTransforms[index];
+				setInstanceTransform(
+					surfaceMesh,
+					surfaceInstanceObject,
+					index,
+					cube.x,
+					0,
+					cube.z,
+					cubeSize,
+					cube.depth,
+					cubeSize,
+				);
+			}
+			surfaceMesh.count = cubeCount;
+			surfaceMesh.instanceMatrix.needsUpdate = true;
+			surfaceMesh.computeBoundingSphere?.();
+		}
+
+		const edgeMesh = edgeMeshRef.current;
+		if (edges && edgeMesh) {
+			let edgeIndex = 0;
+			for (let index = 0; index < cubeCount; index += 1) {
+				const cube = cubeTransforms[index];
+				edgeIndex = writeCubeEdgeInstances(
+					edgeMesh,
+					edgeInstanceObject,
+					edgeIndex,
+					cube.x,
+					cube.z,
+					cubeSize,
+					cube.depth,
+					cube.edgeThickness,
+				);
+			}
+			edgeMesh.count = edgeIndex;
+			edgeMesh.instanceMatrix.needsUpdate = true;
+			edgeMesh.computeBoundingSphere?.();
+		}
+	}, [
+		cubeCount,
+		cubeSize,
+		cubeTransforms,
+		edgeInstanceObject,
+		edges,
+		surfaceInstanceObject,
+	]);
 
 	return (
-		<group>
+		<group position={meshPosition}>
 			<mesh
 				position={[0, -maxDepth * 0.02, 0]}
 				rotation={[-Math.PI / 2, 0, 0]}
@@ -396,23 +495,24 @@ export function CubesDisplayLayer3D({
 				<planeGeometry args={[gridWidth + cubeSize, gridHeight + cubeSize]} />
 				<shadowMaterial transparent={true} opacity={0.68} />
 			</mesh>
-			{cubes.map((cube) => (
-				<group key={cube.key} position={cube.position} scale={cube.scale}>
-					<mesh
-						geometry={boxGeometry}
-						material={surfaceMaterial}
-						renderOrder={order}
-						castShadow={true}
-						receiveShadow={true}
-					/>
-					<mesh
-						geometry={boxGeometry}
-						material={edgeMaterial}
-						renderOrder={order + 0.01}
-						scale={[1.001, 1.001, 1.001]}
-					/>
-				</group>
-			))}
+			<instancedMesh
+				key={`cube-surfaces-${cubeCount}`}
+				ref={surfaceMeshRef}
+				args={[boxGeometry, surfaceMaterial, cubeCount]}
+				renderOrder={order}
+				castShadow={true}
+				receiveShadow={true}
+				frustumCulled={false}
+			/>
+			{edges && edgeCount > 0 && (
+				<instancedMesh
+					key={`cube-edges-${edgeCount}`}
+					ref={edgeMeshRef}
+					args={[edgeGeometry, edgeMaterial, edgeCount]}
+					renderOrder={order + 0.01}
+					frustumCulled={false}
+				/>
+			)}
 		</group>
 	);
 }

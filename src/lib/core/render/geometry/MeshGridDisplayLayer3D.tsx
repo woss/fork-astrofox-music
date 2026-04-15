@@ -18,6 +18,10 @@ import {
 	requiresPremultipliedAlpha,
 } from "../layers/TexturePlane";
 import { getMaterialNode, isPointsMaterial } from "./GeometryDisplayLayer";
+import {
+	createGridMotionContext,
+	sampleProceduralGridMotion,
+} from "./gridMotion";
 
 function createMeshGridGeometry(
 	columns: number,
@@ -88,71 +92,6 @@ function createMeshGridGeometry(
 	};
 }
 
-function getVertexOffset(
-	motion: string,
-	columnIndex: number,
-	rowIndex: number,
-	columns: number,
-	rows: number,
-	time: number,
-	amplitude: number,
-	frequencyX: number,
-	frequencyY: number,
-) {
-	const centerColumn = (columns - 1) / 2;
-	const centerRow = (rows - 1) / 2;
-	const centeredColumn = columnIndex - centerColumn;
-	const centeredRow = rowIndex - centerRow;
-	const radialDistance = Math.sqrt(
-		centeredColumn * centeredColumn + centeredRow * centeredRow,
-	);
-	const maxDistance = Math.max(
-		1,
-		Math.sqrt(centerColumn ** 2 + centerRow ** 2),
-	);
-	const normalizedDistance = radialDistance / maxDistance;
-	const angle = Math.atan2(centeredRow, centeredColumn);
-	const averageFrequency = Math.max(0.05, (frequencyX + frequencyY) * 0.5);
-
-	switch (motion) {
-		case "Ripple":
-			return Math.sin(radialDistance * averageFrequency - time * 3) * amplitude;
-		case "Pulse":
-			return (
-				Math.sin((normalizedDistance * 6 - time * 2) * averageFrequency) *
-				(1 - normalizedDistance * 0.35) *
-				amplitude
-			);
-		case "Twist":
-			return (
-				Math.sin(
-					angle * averageFrequency * 8 + time * 2 + radialDistance * 0.35,
-				) *
-				(0.55 + (1 - normalizedDistance) * 0.45) *
-				amplitude
-			);
-		case "Noise": {
-			const noiseA = Math.sin(
-				(columnIndex * frequencyX + time * 1.7) * 1.9 +
-					Math.sin((rowIndex * frequencyY - time * 1.3) * 0.8),
-			);
-			const noiseB = Math.cos(
-				(rowIndex * frequencyY - time * 1.1) * 1.6 +
-					Math.sin((columnIndex * frequencyX + time * 0.7) * 0.7),
-			);
-
-			return (noiseA + noiseB) * 0.5 * amplitude;
-		}
-		default:
-			return (
-				(Math.sin((columnIndex + time) * frequencyX) +
-					Math.sin((rowIndex + time) * frequencyY)) *
-				0.5 *
-				amplitude
-			);
-	}
-}
-
 export function MeshGridDisplayLayer3D({
 	display,
 	order,
@@ -166,7 +105,7 @@ export function MeshGridDisplayLayer3D({
 	const {
 		material = "Points",
 		shading = "Smooth",
-		motion = "Wave",
+		motion = "Horizontal",
 		color = "#FFFFFF",
 		edges = false,
 		edgeColor = "#FFFFFF",
@@ -267,16 +206,19 @@ export function MeshGridDisplayLayer3D({
 		let positionIndex = 0;
 		for (let rowIndex = 0; rowIndex < gridRows; rowIndex += 1) {
 			for (let columnIndex = 0; columnIndex < gridColumns; columnIndex += 1) {
-				positions[positionIndex + 1] = getVertexOffset(
-					String(motion || "Wave"),
+				const motionContext = createGridMotionContext(
 					columnIndex,
 					rowIndex,
 					gridColumns,
 					gridRows,
 					timeRef.current,
-					amplitude,
 					resolvedFrequencyX,
 					resolvedFrequencyY,
+				);
+				positions[positionIndex + 1] = sampleProceduralGridMotion(
+					String(motion || "Horizontal"),
+					motionContext,
+					amplitude,
 				);
 				positionIndex += 3;
 			}
@@ -308,14 +250,19 @@ export function MeshGridDisplayLayer3D({
 					renderOrder={order + 0.01}
 					frustumCulled={false}
 				>
-					<meshBasicMaterial
+					<meshStandardMaterial
 						color={sceneMask ? "#000000" : edgeColor}
 						wireframe={true}
 						transparent={true}
+						roughness={0.7}
+						metalness={0.03}
 						premultipliedAlpha={premultipliedAlpha}
 						opacity={edgeOpacity}
 						depthTest={true}
 						depthWrite={false}
+						polygonOffset={true}
+						polygonOffsetFactor={-1}
+						polygonOffsetUnits={-1}
 						blending={blending}
 						blendEquation={sceneMask ? AddEquation : undefined}
 						blendSrc={sceneMask ? ZeroFactor : undefined}
