@@ -32,7 +32,7 @@ export default class CubesDisplay extends Display {
 			columns: 8,
 			separation: 32,
 			gap: 2,
-			motion: "Horizontal",
+			motion: "Radial",
 			height: 28,
 			speed: 1,
 			frequencyX: 0.3,

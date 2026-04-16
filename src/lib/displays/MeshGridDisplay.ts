@@ -22,7 +22,7 @@ export default class MeshGridDisplay extends Display {
 		defaultProperties: {
 			material: "Standard",
 			shading: "Smooth",
-			motion: "Horizontal",
+			motion: "Radial",
 			color: "#FFFFFF",
 			wireframe: true,
 			edges: false,
