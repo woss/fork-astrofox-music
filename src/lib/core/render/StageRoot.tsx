@@ -30,6 +30,25 @@ const NEUTRAL_SCENE_PROPS = {
 	sceneMaskCombine: "replace",
 };
 
+const THREE_D_DISPLAY_NAMES = new Set([
+	"GeometryDisplay",
+	"TunnelDisplay",
+	"CubesDisplay",
+	"MeshGridDisplay",
+]);
+
+function wrapDisplayNode(display, node) {
+	if (!node) {
+		return null;
+	}
+
+	return (
+		<group key={display.id} visible={Boolean(display.enabled)}>
+			{node}
+		</group>
+	);
+}
+
 function ComposerPresenter({ onPresent }) {
 	useFrame((state) => {
 		onPresent?.(state.gl);
@@ -75,10 +94,14 @@ export default function StageRoot({
 		);
 		const scene2D = [];
 		const scene3D = [];
+		const has3DDisplays = (scene.displays || []).some((display) =>
+			THREE_D_DISPLAY_NAMES.has(display?.name),
+		);
 		let scene3DOrder = order;
 
 		for (const display of scene.displays || []) {
-			if (!display?.enabled) {
+			if (!display) {
+				order += 1;
 				continue;
 			}
 
@@ -87,130 +110,152 @@ export default function StageRoot({
 					const src = display.properties?.src;
 					if (!src || src === BLANK_IMAGE) break;
 					scene2D.push(
-						<ImageDisplayLayer
-							key={display.id}
-							display={display}
-							order={order}
-							{...NEUTRAL_SCENE_PROPS}
-						/>,
+						wrapDisplayNode(
+							display,
+							<ImageDisplayLayer
+								display={display}
+								order={order}
+								{...NEUTRAL_SCENE_PROPS}
+							/>,
+						),
 					);
 					break;
 				}
 				case "VideoDisplay":
 					scene2D.push(
-						<VideoDisplayLayer
-							key={display.id}
-							display={display}
-							order={order}
-							{...NEUTRAL_SCENE_PROPS}
-						/>,
+						wrapDisplayNode(
+							display,
+							<VideoDisplayLayer
+								display={display}
+								order={order}
+								{...NEUTRAL_SCENE_PROPS}
+							/>,
+						),
 					);
 					break;
 				case "TextDisplay":
 					scene2D.push(
-						<TextDisplayLayer
-							key={display.id}
-							display={display}
-							order={order}
-							frameData={frameData}
-							{...NEUTRAL_SCENE_PROPS}
-						/>,
+						wrapDisplayNode(
+							display,
+							<TextDisplayLayer
+								display={display}
+								order={order}
+								frameData={frameData}
+								{...NEUTRAL_SCENE_PROPS}
+							/>,
+						),
 					);
 					break;
 				case "ShapeDisplay":
 					scene2D.push(
-						<ShapeDisplayLayer
-							key={display.id}
-							display={display}
-							order={order}
-							frameData={frameData}
-							{...NEUTRAL_SCENE_PROPS}
-						/>,
+						wrapDisplayNode(
+							display,
+							<ShapeDisplayLayer
+								display={display}
+								order={order}
+								frameData={frameData}
+								{...NEUTRAL_SCENE_PROPS}
+							/>,
+						),
 					);
 					break;
 				case "BarSpectrumDisplay":
 					scene2D.push(
-						<BarSpectrumDisplayLayer
-							key={display.id}
-							display={display}
-							order={order}
-							frameData={frameData}
-							{...NEUTRAL_SCENE_PROPS}
-						/>,
+						wrapDisplayNode(
+							display,
+							<BarSpectrumDisplayLayer
+								display={display}
+								order={order}
+								frameData={frameData}
+								{...NEUTRAL_SCENE_PROPS}
+							/>,
+						),
 					);
 					break;
 				case "WaveSpectrumDisplay":
 					scene2D.push(
-						<WaveSpectrumDisplayLayer
-							key={display.id}
-							display={display}
-							order={order}
-							frameData={frameData}
-							{...NEUTRAL_SCENE_PROPS}
-						/>,
+						wrapDisplayNode(
+							display,
+							<WaveSpectrumDisplayLayer
+								display={display}
+								order={order}
+								frameData={frameData}
+								{...NEUTRAL_SCENE_PROPS}
+							/>,
+						),
 					);
 					break;
 				case "SoundWaveDisplay":
 					scene2D.push(
-						<SoundWaveDisplayLayer
-							key={display.id}
-							display={display}
-							order={order}
-							frameData={frameData}
-							{...NEUTRAL_SCENE_PROPS}
-						/>,
+						wrapDisplayNode(
+							display,
+							<SoundWaveDisplayLayer
+								display={display}
+								order={order}
+								frameData={frameData}
+								{...NEUTRAL_SCENE_PROPS}
+							/>,
+						),
 					);
 					break;
 				case "GeometryDisplay":
 					if (scene3D.length === 0) scene3DOrder = order;
 					scene3D.push(
-						<GeometryDisplayLayer3D
-							key={display.id}
-							display={display}
-							order={order}
-							frameData={frameData}
-							{...NEUTRAL_SCENE_PROPS}
-						/>,
+						wrapDisplayNode(
+							display,
+							<GeometryDisplayLayer3D
+								display={display}
+								order={order}
+								frameData={frameData}
+								{...NEUTRAL_SCENE_PROPS}
+							/>,
+						),
 					);
 					break;
 				case "TunnelDisplay":
 					if (scene3D.length === 0) scene3DOrder = order;
 					scene3D.push(
-						<TunnelDisplayLayer3D
-							key={display.id}
-							display={display}
-							order={order}
-							height={height}
-							sceneProperties={scene.properties || {}}
-							frameData={frameData}
-							{...NEUTRAL_SCENE_PROPS}
-						/>,
+						wrapDisplayNode(
+							display,
+							<TunnelDisplayLayer3D
+								display={display}
+								order={order}
+								height={height}
+								sceneProperties={scene.properties || {}}
+								frameData={frameData}
+								{...NEUTRAL_SCENE_PROPS}
+							/>,
+						),
 					);
 					break;
 				case "CubesDisplay":
 					if (scene3D.length === 0) scene3DOrder = order;
 					scene3D.push(
-						<CubesDisplayLayer3D
-							key={display.id}
-							display={display}
-							order={order}
-							width={width}
-							height={height}
-							frameData={frameData}
-							{...NEUTRAL_SCENE_PROPS}
-						/>,
+						wrapDisplayNode(
+							display,
+							<CubesDisplayLayer3D
+								display={display}
+								order={order}
+								width={width}
+								height={height}
+								frameData={frameData}
+								{...NEUTRAL_SCENE_PROPS}
+							/>,
+						),
 					);
 					break;
 				case "MeshGridDisplay":
 					if (scene3D.length === 0) scene3DOrder = order;
 					scene3D.push(
-						<MeshGridDisplayLayer3D
-							key={display.id}
-							display={display}
-							order={order}
-							frameData={frameData}
-							{...NEUTRAL_SCENE_PROPS}
-						/>,
+						wrapDisplayNode(
+							display,
+							<MeshGridDisplayLayer3D
+								display={display}
+								order={order}
+								frameData={frameData}
+								{...NEUTRAL_SCENE_PROPS}
+							/>,
+						),
 					);
 					break;
 				default:
@@ -222,7 +267,7 @@ export default function StageRoot({
 
 		const displayContent = (
 			<React.Fragment key={scene.id}>
-				{(scene3D.length > 0 || cameraModeSceneId === scene.id) && (
+				{(has3DDisplays || cameraModeSceneId === scene.id) && (
 					<PerspectiveScene3D
 						sceneId={scene.id}
 						sceneProperties={scene.properties || {}}
