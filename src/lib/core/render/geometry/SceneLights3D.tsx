@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useFrame } from "@react-three/fiber";
+import { useThree } from "@react-three/fiber";
 import React from "react";
 
 const DEFAULT_LIGHT_DISTANCE = 700;
@@ -131,105 +131,161 @@ function syncDirectionalShadow(
 	}
 }
 
+function syncSceneLights({
+	sceneProperties = {},
+	width,
+	height,
+	previewAmbientLight,
+	previewKeyLight,
+	keyLight,
+	fillLight,
+	rimLight,
+}) {
+	const {
+		lighting = false,
+		keyLightIntensity = 2.2,
+		fillLightIntensity = 0.75,
+		rimLightIntensity = 0.35,
+		keyLightDistance,
+		fillLightDistance,
+		rimLightDistance,
+		lightDistance = DEFAULT_LIGHT_DISTANCE,
+		lightColor = "#FFFFFF",
+		fillLightColor = "#FFFFFF",
+		rimLightColor = "#F3F1FF",
+		shadows = true,
+	} = sceneProperties;
+
+	if (!lighting) {
+		setLightIntensity(previewAmbientLight, PREVIEW_AMBIENT_INTENSITY);
+		setVectorPosition(
+			previewKeyLight,
+			scalePosition(STUDIO_LIGHTING.keyPosition, PREVIEW_LIGHT_DISTANCE),
+		);
+		setLightIntensity(previewKeyLight, PREVIEW_KEY_INTENSITY);
+		setLightColor(previewKeyLight, "#FFFFFF");
+		setCastShadow(previewKeyLight, false);
+		setLightIntensity(keyLight, 0);
+		setLightIntensity(fillLight, 0);
+		setLightIntensity(rimLight, 0);
+		setCastShadow(keyLight, false);
+		return;
+	}
+
+	setLightIntensity(previewAmbientLight, 0);
+	setLightIntensity(previewKeyLight, 0);
+	setCastShadow(previewKeyLight, false);
+
+	const resolvedKeyDistance = Math.max(
+		50,
+		Number(keyLightDistance ?? lightDistance) || 50,
+	);
+	const resolvedFillDistance = Math.max(
+		50,
+		Number(fillLightDistance ?? lightDistance) || 50,
+	);
+	const resolvedRimDistance = Math.max(
+		50,
+		Number(rimLightDistance ?? lightDistance) || 50,
+	);
+
+	setVectorPosition(
+		keyLight,
+		scalePosition(STUDIO_LIGHTING.keyPosition, resolvedKeyDistance),
+	);
+	setLightIntensity(
+		keyLight,
+		Math.max(0, Number(keyLightIntensity) || 0) *
+			STUDIO_LIGHTING.key *
+			getDistanceIntensityScale(resolvedKeyDistance),
+	);
+	setLightColor(keyLight, String(lightColor || "#FFFFFF"));
+	setCastShadow(keyLight, Boolean(shadows));
+	syncDirectionalShadow(keyLight, resolvedKeyDistance, width, height);
+
+	setVectorPosition(
+		fillLight,
+		scalePosition(STUDIO_LIGHTING.fillPosition, resolvedFillDistance),
+	);
+	setLightIntensity(
+		fillLight,
+		Math.max(0, Number(fillLightIntensity) || 0) *
+			STUDIO_LIGHTING.fill *
+			getDistanceIntensityScale(resolvedFillDistance),
+	);
+	setLightColor(fillLight, String(fillLightColor || "#FFFFFF"));
+
+	setVectorPosition(
+		rimLight,
+		scalePosition(STUDIO_LIGHTING.rimPosition, resolvedRimDistance),
+	);
+	setLightIntensity(
+		rimLight,
+		Math.max(0, Number(rimLightIntensity) || 0) *
+			STUDIO_LIGHTING.rim *
+			getDistanceIntensityScale(resolvedRimDistance),
+	);
+	setLightColor(rimLight, String(rimLightColor || "#F3F1FF"));
+}
+
 function SceneLights3DImpl({ sceneProperties = {}, width, height }) {
 	const previewAmbientRef = React.useRef(null);
 	const previewKeyRef = React.useRef(null);
 	const keyLightRef = React.useRef(null);
 	const fillLightRef = React.useRef(null);
 	const rimLightRef = React.useRef(null);
+	const invalidate = useThree((state) => state.invalidate);
 
-	useFrame(() => {
-		const {
-			lighting = false,
-			keyLightIntensity = 2.2,
-			fillLightIntensity = 0.75,
-			rimLightIntensity = 0.35,
-			keyLightDistance,
-			fillLightDistance,
-			rimLightDistance,
-			lightDistance = DEFAULT_LIGHT_DISTANCE,
-			lightColor = "#FFFFFF",
-			fillLightColor = "#FFFFFF",
-			rimLightColor = "#F3F1FF",
-			shadows = true,
-		} = sceneProperties;
+	const lighting = Boolean(sceneProperties.lighting);
+	const shadows = Boolean(sceneProperties.shadows ?? true);
+	const keyLightIntensity = Number(sceneProperties.keyLightIntensity ?? 2.2);
+	const fillLightIntensity = Number(sceneProperties.fillLightIntensity ?? 0.75);
+	const rimLightIntensity = Number(sceneProperties.rimLightIntensity ?? 0.35);
+	const lightDistance = Number(
+		sceneProperties.lightDistance ?? DEFAULT_LIGHT_DISTANCE,
+	);
+	const keyLightDistance = Number(
+		sceneProperties.keyLightDistance ?? lightDistance,
+	);
+	const fillLightDistance = Number(
+		sceneProperties.fillLightDistance ?? lightDistance,
+	);
+	const rimLightDistance = Number(
+		sceneProperties.rimLightDistance ?? lightDistance,
+	);
+	const lightColor = String(sceneProperties.lightColor || "#FFFFFF");
+	const fillLightColor = String(sceneProperties.fillLightColor || "#FFFFFF");
+	const rimLightColor = String(sceneProperties.rimLightColor || "#F3F1FF");
 
-		if (!lighting) {
-			setLightIntensity(previewAmbientRef.current, PREVIEW_AMBIENT_INTENSITY);
-			setVectorPosition(
-				previewKeyRef.current,
-				scalePosition(STUDIO_LIGHTING.keyPosition, PREVIEW_LIGHT_DISTANCE),
-			);
-			setLightIntensity(previewKeyRef.current, PREVIEW_KEY_INTENSITY);
-			setLightColor(previewKeyRef.current, "#FFFFFF");
-			setCastShadow(previewKeyRef.current, false);
-			setLightIntensity(keyLightRef.current, 0);
-			setLightIntensity(fillLightRef.current, 0);
-			setLightIntensity(rimLightRef.current, 0);
-			setCastShadow(keyLightRef.current, false);
-			return;
-		}
-
-		setLightIntensity(previewAmbientRef.current, 0);
-		setLightIntensity(previewKeyRef.current, 0);
-		setCastShadow(previewKeyRef.current, false);
-
-		const resolvedKeyDistance = Math.max(
-			50,
-			Number(keyLightDistance ?? lightDistance) || 50,
-		);
-		const resolvedFillDistance = Math.max(
-			50,
-			Number(fillLightDistance ?? lightDistance) || 50,
-		);
-		const resolvedRimDistance = Math.max(
-			50,
-			Number(rimLightDistance ?? lightDistance) || 50,
-		);
-
-		setVectorPosition(
-			keyLightRef.current,
-			scalePosition(STUDIO_LIGHTING.keyPosition, resolvedKeyDistance),
-		);
-		setLightIntensity(
-			keyLightRef.current,
-			Math.max(0, Number(keyLightIntensity) || 0) *
-				STUDIO_LIGHTING.key *
-				getDistanceIntensityScale(resolvedKeyDistance),
-		);
-		setLightColor(keyLightRef.current, String(lightColor || "#FFFFFF"));
-		setCastShadow(keyLightRef.current, Boolean(shadows));
-		syncDirectionalShadow(
-			keyLightRef.current,
-			resolvedKeyDistance,
+	React.useLayoutEffect(() => {
+		syncSceneLights({
+			sceneProperties,
 			width,
 			height,
-		);
-
-		setVectorPosition(
-			fillLightRef.current,
-			scalePosition(STUDIO_LIGHTING.fillPosition, resolvedFillDistance),
-		);
-		setLightIntensity(
-			fillLightRef.current,
-			Math.max(0, Number(fillLightIntensity) || 0) *
-				STUDIO_LIGHTING.fill *
-				getDistanceIntensityScale(resolvedFillDistance),
-		);
-		setLightColor(fillLightRef.current, String(fillLightColor || "#FFFFFF"));
-
-		setVectorPosition(
-			rimLightRef.current,
-			scalePosition(STUDIO_LIGHTING.rimPosition, resolvedRimDistance),
-		);
-		setLightIntensity(
-			rimLightRef.current,
-			Math.max(0, Number(rimLightIntensity) || 0) *
-				STUDIO_LIGHTING.rim *
-				getDistanceIntensityScale(resolvedRimDistance),
-		);
-		setLightColor(rimLightRef.current, String(rimLightColor || "#F3F1FF"));
-	});
+			previewAmbientLight: previewAmbientRef.current,
+			previewKeyLight: previewKeyRef.current,
+			keyLight: keyLightRef.current,
+			fillLight: fillLightRef.current,
+			rimLight: rimLightRef.current,
+		});
+		invalidate();
+	}, [
+		fillLightColor,
+		fillLightDistance,
+		fillLightIntensity,
+		height,
+		invalidate,
+		keyLightDistance,
+		keyLightIntensity,
+		lightColor,
+		lighting,
+		rimLightColor,
+		rimLightDistance,
+		rimLightIntensity,
+		sceneProperties,
+		shadows,
+		width,
+	]);
 
 	return (
 		<>
@@ -248,4 +304,4 @@ function SceneLights3DImpl({ sceneProperties = {}, width, height }) {
 	);
 }
 
-export const SceneLights3D = React.memo(SceneLights3DImpl);
+export const SceneLights3D = SceneLights3DImpl;
