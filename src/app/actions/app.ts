@@ -42,6 +42,7 @@ interface AppState {
 	isBottomPanelVisible: boolean;
 	isRightPanelVisible: boolean;
 	isVideoRecording: boolean;
+	isStagePictureInPictureActive: boolean;
 	videoExportSegment: VideoExportSegment | null;
 }
 
@@ -115,6 +116,7 @@ const initialState: AppState = {
 	isBottomPanelVisible: true,
 	isRightPanelVisible: true,
 	isVideoRecording: false,
+	isStagePictureInPictureActive: false,
 	videoExportSegment: null,
 };
 
@@ -125,6 +127,8 @@ const appStore = create<AppState>(() => ({
 let appInitPromise: Promise<void> | null = null;
 let appInitialized = false;
 let activeVideoRecorder: MediaRecorder | null = null;
+let stagePictureInPictureVideo: HTMLVideoElement | null = null;
+let stagePictureInPictureStream: MediaStream | null = null;
 
 const DEFAULT_VIDEO_FPS = 60;
 const RECORDING_TIMESLICE_MS = 250;
@@ -154,6 +158,67 @@ function getSupportedVideoMimeType(): string | null {
 
 function getExtensionFromMimeType(mimeType: string): string {
 	return mimeType.includes("mp4") ? "mp4" : "webm";
+}
+
+function cleanupStagePictureInPictureStream() {
+	for (const track of stagePictureInPictureStream?.getTracks() || []) {
+		track.stop();
+	}
+
+	stagePictureInPictureStream = null;
+
+	if (stagePictureInPictureVideo) {
+		stagePictureInPictureVideo.srcObject = null;
+	}
+}
+
+function handleStagePictureInPictureLeave() {
+	cleanupStagePictureInPictureStream();
+	appStore.setState({ isStagePictureInPictureActive: false });
+}
+
+function ensureStagePictureInPictureVideo(): HTMLVideoElement | null {
+	if (typeof document === "undefined") {
+		return null;
+	}
+
+	if (stagePictureInPictureVideo) {
+		return stagePictureInPictureVideo;
+	}
+
+	const video = document.createElement("video");
+	video.muted = true;
+	video.autoplay = true;
+	video.playsInline = true;
+	video.setAttribute("aria-hidden", "true");
+	video.style.position = "fixed";
+	video.style.top = "-9999px";
+	video.style.left = "-9999px";
+	video.style.width = "1px";
+	video.style.height = "1px";
+	video.style.opacity = "0";
+	video.style.pointerEvents = "none";
+	video.addEventListener(
+		"leavepictureinpicture",
+		handleStagePictureInPictureLeave,
+	);
+	document.body.appendChild(video);
+	stagePictureInPictureVideo = video;
+
+	return stagePictureInPictureVideo;
+}
+
+export function isStagePictureInPictureSupported() {
+	if (typeof document === "undefined") {
+		return false;
+	}
+
+	const video = document.createElement("video");
+
+	return Boolean(
+		document.pictureInPictureEnabled &&
+			typeof video.requestPictureInPicture === "function",
+	);
 }
 
 function getVideoRecordingSetup(): {
@@ -508,6 +573,80 @@ export async function startVideoRecording({
 		raiseError("Failed to start video recording.", error);
 		return false;
 	}
+}
+
+export async function startStagePictureInPicture() {
+	if (!isStagePictureInPictureSupported()) {
+		raiseError("Picture in picture is not supported in this browser.");
+		return false;
+	}
+
+	const canvas = renderBackend.getCanvas?.() as CaptureStreamCanvas | null;
+
+	if (!canvas || typeof canvas.captureStream !== "function") {
+		raiseError("Failed to access the stage canvas for picture in picture.");
+		return false;
+	}
+
+	const video = ensureStagePictureInPictureVideo();
+
+	if (!video) {
+		raiseError("Failed to initialize picture in picture.");
+		return false;
+	}
+
+	try {
+		renderer.requestRender();
+
+		if (
+			document.pictureInPictureElement &&
+			document.pictureInPictureElement !== video
+		) {
+			await document.exitPictureInPicture();
+		}
+
+		cleanupStagePictureInPictureStream();
+		stagePictureInPictureStream = canvas.captureStream(DEFAULT_VIDEO_FPS);
+		video.srcObject = stagePictureInPictureStream;
+		await video.play();
+		await video.requestPictureInPicture();
+		appStore.setState({ isStagePictureInPictureActive: true });
+		return true;
+	} catch (error) {
+		handleStagePictureInPictureLeave();
+		raiseError("Failed to start picture in picture.", error);
+		return false;
+	}
+}
+
+export async function stopStagePictureInPicture() {
+	if (typeof document === "undefined") {
+		return false;
+	}
+
+	try {
+		if (
+			stagePictureInPictureVideo &&
+			document.pictureInPictureElement === stagePictureInPictureVideo
+		) {
+			await document.exitPictureInPicture();
+		} else {
+			handleStagePictureInPictureLeave();
+		}
+
+		return true;
+	} catch (error) {
+		raiseError("Failed to close picture in picture.", error);
+		return false;
+	}
+}
+
+export function toggleStagePictureInPicture() {
+	if (appStore.getState().isStagePictureInPictureActive) {
+		return stopStagePictureInPicture();
+	}
+
+	return startStagePictureInPicture();
 }
 
 export function setActiveReactorId(reactorId?: string | null) {

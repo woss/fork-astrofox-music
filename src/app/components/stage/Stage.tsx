@@ -1,6 +1,8 @@
 import useApp, {
+	isStagePictureInPictureSupported,
 	setCameraModeEnabled,
 	setDisplayTransformModeEnabled,
+	toggleStagePictureInPicture,
 } from "@/app/actions/app";
 import useAudioStore, { loadAudioFile } from "@/app/actions/audio";
 import useScenes, { getSceneIdForElement } from "@/app/actions/scenes";
@@ -17,7 +19,7 @@ import {
 } from "@/components/ui/tooltip";
 import { getDisplayRenderGroup } from "@/lib/utils/displayRenderGroup";
 import { ignoreEvents } from "@/lib/utils/react";
-import { Download } from "lucide-react";
+import { Download, PictureInPicture2 } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import shallow from "zustand/shallow";
@@ -49,6 +51,9 @@ export default function Stage() {
 	const displayTransformModeEnabled = useApp(
 		(state) => state.displayTransformModeEnabled,
 	);
+	const isStagePictureInPictureActive = useApp(
+		(state) => state.isStagePictureInPictureActive,
+	);
 	const sceneById = useScenes((state) => state.sceneById) as Record<
 		string,
 		{ displayName?: string }
@@ -68,6 +73,8 @@ export default function Stage() {
 	const loading = useAudioStore((state) => state.loading);
 	const [dropLoading, setDropLoading] = useState(false);
 	const [dragOverStage, setDragOverStage] = useState(false);
+	const [pictureInPictureSupported, setPictureInPictureSupported] =
+		useState(false);
 	const dragDepth = useRef(0);
 	const activeSceneId = useMemo(
 		() =>
@@ -105,6 +112,10 @@ export default function Stage() {
 			renderer.stop();
 			renderBackend.dispose();
 		};
+	}, []);
+
+	useEffect(() => {
+		setPictureInPictureSupported(isStagePictureInPictureSupported());
 	}, []);
 
 	useEffect(() => {
@@ -228,6 +239,10 @@ export default function Stage() {
 		setDisplayTransformModeEnabled(!displayTransformModeEnabled);
 	}
 
+	function handleStagePictureInPictureToggle() {
+		void toggleStagePictureInPicture();
+	}
+
 	return (
 		<div
 			className={"flex flex-col flex-1 min-w-0 min-h-0 overflow-auto relative"}
@@ -267,6 +282,31 @@ export default function Stage() {
 				</div>
 				<div className="mt-2 flex justify-end gap-2 px-5">
 					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger render={<span />}>
+								<Button
+									type="button"
+									variant={
+										isStagePictureInPictureActive ? "default" : "outline"
+									}
+									size="icon-sm"
+									className="shadow-xl"
+									disabled={!pictureInPictureSupported}
+									onClick={handleStagePictureInPictureToggle}
+								>
+									<PictureInPicture2 className="size-4" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent
+								side="bottom"
+								sideOffset={6}
+								className="rounded bg-neutral-950 px-3 py-2 text-sm text-neutral-200 shadow-lg z-100"
+							>
+								{isStagePictureInPictureActive
+									? "Close picture in picture"
+									: "Open picture in picture"}
+							</TooltipContent>
+						</Tooltip>
 						<Tooltip>
 							<TooltipTrigger render={<span />}>
 								<Button
