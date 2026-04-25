@@ -15,6 +15,7 @@ import {
 import {
 	BarSpectrumDisplayLayer,
 	ImageDisplayLayer,
+	RadialSpectrumDisplayLayer,
 	ShapeDisplayLayer,
 	SoundWaveDisplayLayer,
 	TextDisplayLayer,
@@ -164,6 +165,19 @@ export default function StageRoot({
 						wrapDisplayNode(
 							display,
 							<BarSpectrumDisplayLayer
+								display={display}
+								order={order}
+								frameData={frameData}
+								{...NEUTRAL_SCENE_PROPS}
+							/>,
+						),
+					);
+					break;
+				case "RadialSpectrumDisplay":
+					scene2D.push(
+						wrapDisplayNode(
+							display,
+							<RadialSpectrumDisplayLayer
 								display={display}
 								order={order}
 								frameData={frameData}
