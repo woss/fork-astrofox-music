@@ -9,4 +9,5 @@ export { default as SoundWaveDisplay } from "./SoundWaveDisplay";
 export { default as TextDisplay } from "./TextDisplay";
 export { default as TunnelDisplay } from "./TunnelDisplay";
 export { default as VideoDisplay } from "./VideoDisplay";
+export { default as WaveformRingDisplay } from "./WaveformRingDisplay";
 export { default as WaveSpectrumDisplay } from "./WaveSpectrumDisplay";

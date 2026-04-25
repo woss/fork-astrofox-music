@@ -11,6 +11,7 @@ const DISPLAY_2D_CATEGORIES = [
 			"Bar Spectrum",
 			"Radial Spectrum",
 			"Wave Spectrum",
+			"Waveform Ring",
 			"Sound Wave",
 		],
 	},

@@ -21,6 +21,7 @@ import {
 	TextDisplayLayer,
 	VideoDisplayLayer,
 	WaveSpectrumDisplayLayer,
+	WaveformRingDisplayLayer,
 } from "./layers";
 
 const NEUTRAL_SCENE_PROPS = {
@@ -191,6 +192,19 @@ export default function StageRoot({
 						wrapDisplayNode(
 							display,
 							<WaveSpectrumDisplayLayer
+								display={display}
+								order={order}
+								frameData={frameData}
+								{...NEUTRAL_SCENE_PROPS}
+							/>,
+						),
+					);
+					break;
+				case "WaveformRingDisplay":
+					scene2D.push(
+						wrapDisplayNode(
+							display,
+							<WaveformRingDisplayLayer
 								display={display}
 								order={order}
 								frameData={frameData}

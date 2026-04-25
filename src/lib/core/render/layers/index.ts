@@ -7,4 +7,5 @@ export { ShapeDisplayLayer } from "./ShapeDisplayLayer";
 export { BarSpectrumDisplayLayer } from "./BarSpectrumDisplayLayer";
 export { RadialSpectrumDisplayLayer } from "./RadialSpectrumDisplayLayer";
 export { WaveSpectrumDisplayLayer } from "./WaveSpectrumDisplayLayer";
+export { WaveformRingDisplayLayer } from "./WaveformRingDisplayLayer";
 export { SoundWaveDisplayLayer } from "./SoundWaveDisplayLayer";
