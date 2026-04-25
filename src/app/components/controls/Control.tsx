@@ -21,6 +21,7 @@ interface ControlProps {
 	className?: string;
 	showHeader?: boolean;
 	active?: boolean;
+	onChange?: (props: Record<string, unknown>) => void;
 	onNameClick?: (id: string) => void;
 }
 
@@ -29,6 +30,7 @@ export default function Control({
 	className,
 	showHeader = true,
 	active = false,
+	onChange: onChangeProp,
 	onNameClick,
 }: ControlProps) {
 	const {
@@ -39,7 +41,8 @@ export default function Control({
 		},
 	} = display;
 
-	const onChange = useEntity(display);
+	const internalOnChange = useEntity(display);
+	const onChange = onChangeProp ?? internalOnChange;
 
 	function resolveOption(name: string, option: Record<string, unknown>) {
 		const props: Record<string, unknown> = {};

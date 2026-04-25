@@ -5,7 +5,9 @@ import { Flash, Plus } from "@/app/icons";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
+	DropdownMenuGroup,
 	DropdownMenuItem,
+	DropdownMenuLabel,
 	DropdownMenuRadioGroup,
 	DropdownMenuRadioItem,
 	DropdownMenuSeparator,
@@ -33,6 +35,7 @@ export default function ReactorButton({
 	const reactor = display.getReactor(name);
 	const reactorList = useReactors((state) => state.reactors) as {
 		id: string;
+		name: string;
 		displayName: string;
 	}[];
 
@@ -80,10 +83,12 @@ export default function ReactorButton({
 						))}
 					</DropdownMenuRadioGroup>
 					{reactorList.length > 0 && <DropdownMenuSeparator />}
-					<DropdownMenuItem onClick={createAndAssign}>
-						<Plus className="w-3.5 h-3.5 text-neutral-400" />
-						New Reactor
-					</DropdownMenuItem>
+					<DropdownMenuGroup>
+						<DropdownMenuItem onClick={createAndAssign}>
+							<Plus className="w-3.5 h-3.5 text-neutral-400" />
+							New Reactor
+						</DropdownMenuItem>
+					</DropdownMenuGroup>
 				</DropdownMenuContent>
 			</DropdownMenu>
 		</div>

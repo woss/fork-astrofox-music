@@ -25,6 +25,35 @@ import React, { useEffect, useRef } from "react";
 const SPECTRUM_WIDTH = REACTOR_BARS * (REACTOR_BAR_WIDTH + REACTOR_BAR_SPACING);
 const METER_WIDTH = 20;
 
+const staticOutputModes = [
+	"Static",
+	"Static Forward",
+	"Static Reverse",
+	"Static Cycle",
+];
+
+const beatOutputModes = ["Beat Trigger", "Beat Envelope"];
+
+function getBarColor(outputMode: string) {
+	if (beatOutputModes.includes(outputMode)) {
+		return "#D84D7A";
+	}
+	if (staticOutputModes.includes(outputMode)) {
+		return "#4DA86B";
+	}
+	return "#775FD8";
+}
+
+function getMeterColor(outputMode: string) {
+	if (beatOutputModes.includes(outputMode)) {
+		return "#D84D7A";
+	}
+	if (staticOutputModes.includes(outputMode)) {
+		return "#4DA86B";
+	}
+	return PRIMARY_COLOR;
+}
+
 export default function ReactorPanel() {
 	const activeReactorId = useApp((state) => state.activeReactorId);
 	const reactor = activeReactorId
@@ -41,6 +70,7 @@ export default function ReactorPanel() {
 interface ReactorControlProps {
 	reactor: {
 		displayName: string;
+		name: string;
 		properties: Record<string, unknown>;
 		getResult: () => { fft: Float32Array | number[]; output: number };
 		[key: string]: unknown;
@@ -55,6 +85,10 @@ const ReactorControl = ({ reactor }: ReactorControlProps) => {
 	const onChange = useEntity(
 		reactor as unknown as Parameters<typeof useEntity>[0],
 	);
+
+	const outputMode = reactor.properties.outputMode as string;
+	const isStatic = staticOutputModes.includes(outputMode);
+	const showBoxSelection = !isStatic && !beatOutputModes.includes(outputMode);
 
 	function handleChange(props: Record<string, unknown>) {
 		onChange(props);
@@ -72,24 +106,29 @@ const ReactorControl = ({ reactor }: ReactorControlProps) => {
 	}
 
 	useEffect(() => {
-		spectrum.current = new CanvasBars(
-			{
-				width: SPECTRUM_WIDTH,
-				height: REACTOR_BAR_HEIGHT,
-				barWidth: REACTOR_BAR_WIDTH,
-				barSpacing: REACTOR_BAR_SPACING,
-				shadowHeight: 0,
-				color: "#775FD8",
-				backgroundColor: "#FF0000",
-			},
-			spectrumCanvas.current!,
-		);
+		const barColor = getBarColor(outputMode);
+		const meterColor = getMeterColor(outputMode);
+
+		if (spectrumCanvas.current) {
+			spectrum.current = new CanvasBars(
+				{
+					width: SPECTRUM_WIDTH,
+					height: REACTOR_BAR_HEIGHT,
+					barWidth: REACTOR_BAR_WIDTH,
+					barSpacing: REACTOR_BAR_SPACING,
+					shadowHeight: 0,
+					color: barColor,
+					backgroundColor: "#FF0000",
+				},
+				spectrumCanvas.current,
+			);
+		}
 
 		meter.current = new CanvasMeter(
 			{
 				width: METER_WIDTH,
 				height: REACTOR_BAR_HEIGHT,
-				color: PRIMARY_COLOR,
+				color: meterColor,
 				origin: "bottom",
 			},
 			outputCanvas.current!,
@@ -102,7 +141,7 @@ const ReactorControl = ({ reactor }: ReactorControlProps) => {
 			spectrum.current = null;
 			meter.current = null;
 		};
-	}, [reactor]);
+	}, [reactor, outputMode]);
 
 	return (
 		<div
@@ -124,35 +163,40 @@ const ReactorControl = ({ reactor }: ReactorControlProps) => {
 							reactor as unknown as Parameters<typeof Control>[0]["display"]
 						}
 						showHeader={false}
+						onChange={handleChange}
 					/>
 				</div>
-				<div
-					className={
-						"relative bg-neutral-900 shadow-[inset_0_0_60px_rgba(0,_0,_0,_0.5)] border  border-neutral-800"
-					}
-				>
-					<canvas
-						ref={spectrumCanvas}
-						width={SPECTRUM_WIDTH}
-						height={REACTOR_BAR_HEIGHT}
-					/>
-					<BoxInput
-						name="selection"
-						value={
-							reactor.properties.selection as {
-								x: number;
-								y: number;
-								width: number;
-								height: number;
-							}
+				{!isStatic && (
+					<div
+						className={
+							"relative bg-neutral-900 shadow-[inset_0_0_60px_rgba(0,_0,_0,_0.5)] border  border-neutral-800"
 						}
-						minWidth={REACTOR_BAR_WIDTH}
-						minHeight={REACTOR_BAR_WIDTH}
-						maxWidth={SPECTRUM_WIDTH}
-						maxHeight={REACTOR_BAR_HEIGHT}
-						onChange={inputValueToProps(handleChange)}
-					/>
-				</div>
+					>
+						<canvas
+							ref={spectrumCanvas}
+							width={SPECTRUM_WIDTH}
+							height={REACTOR_BAR_HEIGHT}
+						/>
+						{showBoxSelection && (
+							<BoxInput
+								name="selection"
+								value={
+									reactor.properties.selection as {
+										x: number;
+										y: number;
+										width: number;
+										height: number;
+									}
+								}
+								minWidth={REACTOR_BAR_WIDTH}
+								minHeight={REACTOR_BAR_WIDTH}
+								maxWidth={SPECTRUM_WIDTH}
+								maxHeight={REACTOR_BAR_HEIGHT}
+								onChange={inputValueToProps(handleChange)}
+							/>
+						)}
+					</div>
+				)}
 				<div
 					className={
 						"ml-2.5 shadow-[inset_0_0_20px_rgba(0,_0,_0,_0.5)] border border-neutral-800"

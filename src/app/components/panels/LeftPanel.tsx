@@ -80,6 +80,7 @@ export default function LeftPanel() {
 														type="button"
 														className="text-neutral-100 bg-neutral-900 min-h-6 min-w-6 text-center rounded inline-flex justify-center items-center cursor-default shrink-0 [&:hover]:bg-neutral-800"
 														onClick={handleAddReactor}
+														aria-label="Add reactor"
 													/>
 												}
 											>
